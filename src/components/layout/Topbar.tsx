@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Search, LogOut, ShieldCheck } from "lucide-react";
+import { Search, LogOut, ShieldCheck as ShieldIcon, LayoutDashboard, Users, CalendarCheck, CalendarDays, DollarSign, TrendingUp, ScrollText, Settings, ClipboardList, Clock, CalendarRange } from "lucide-react";
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -56,11 +56,33 @@ export default function Topbar() {
   const displayRole = auth?.user?.role === 'super_admin' ? 'Super Admin' : 
                       auth?.user?.role === 'hr' ? 'HR Module' : 'Employee';
 
+  const routeIcons: Record<string, any> = {
+    '/dashboard': LayoutDashboard,
+    '/employees': Users,
+    '/employees/add': Users,
+    '/attendance': CalendarCheck,
+    '/leave': CalendarDays,
+    '/payroll': DollarSign,
+    '/promotions': TrendingUp,
+    '/accounts': ShieldIcon,
+    '/audit-log': ScrollText,
+    '/my-dashboard': LayoutDashboard,
+    '/my-attendance': CalendarCheck,
+    '/my-payslips': CalendarRange,
+    '/my-leave': CalendarDays,
+    '/my-penalties': ClipboardList,
+    '/my-profile': Users,
+  };
+
+  const currentIcon = routeIcons[location.pathname] || (location.pathname.startsWith('/settings/') ? Settings : LayoutDashboard);
+  const PageIcon = currentIcon;
+
   return (
     <div className="topbar">
       <div className="bc">
         <span className="bc-home">EMS</span>
         <span className="bc-sep">·</span>
+        {PageIcon && <PageIcon size={14} className="bc-icon" />}
         <span className="bc-cur">{pageName}</span>
       </div>
 
@@ -81,7 +103,7 @@ export default function Topbar() {
           borderRadius: '8px',
           border: '1px solid rgba(37, 99, 235, 0.2)'
         }}>
-          <ShieldCheck size={14} color="#2563eb" />
+          <ShieldIcon size={14} color="#2563eb" />
           <span style={{ fontSize: '11px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase' }}>
              {displayRole}
           </span>
