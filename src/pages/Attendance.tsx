@@ -417,11 +417,26 @@ const Attendance = () => {
             </div>
 
             <div style={styles.statsGrid}>
-              <div style={styles.statItem('#10b981', activeFilter === 'All')} onClick={() => setActiveFilter('All')}><div style={styles.statLabel}>✅ PRESENT</div><div style={styles.statValue}>{stats.present}</div></div>
-              <div style={styles.statItem('#f59e0b', activeFilter === 'Late')} onClick={() => setActiveFilter('Late')}><div style={styles.statLabel}>⚠️ LATE</div><div style={styles.statValue}>{stats.late}</div></div>
-              <div style={styles.statItem('#ef4444', activeFilter === 'Absent')} onClick={() => setActiveFilter('Absent')}><div style={styles.statLabel}>❌ ABSENT</div><div style={styles.statValue}>{stats.absent}</div></div>
-              <div style={styles.statItem('#8b5cf6', activeFilter === 'On Leave')} onClick={() => setActiveFilter('On Leave')}><div style={styles.statLabel}>🏖️ ON LEAVE</div><div style={styles.statValue}>{stats.onLeave}</div></div>
-              <div style={styles.statItem('#ec4899', activeFilter === 'Penalties')} onClick={() => setActiveFilter('Penalties')}><div style={styles.statLabel}>⚡ AUTO PENALTIES</div><div style={styles.statValue}>2</div></div>
+              <div style={styles.statItem('#10b981', activeFilter === 'All')} onClick={() => setActiveFilter('All')}>
+                <div style={styles.statLabel}>✅ PRESENT</div>
+                <div style={styles.statValue}>{stats.present}</div>
+              </div>
+              <div style={styles.statItem('#f59e0b', activeFilter === 'Late')} onClick={() => setActiveFilter('Late')}>
+                <div style={styles.statLabel}>⚠️ LATE</div>
+                <div style={styles.statValue}>{stats.late}</div>
+              </div>
+              <div style={styles.statItem('#ef4444', activeFilter === 'Absent')} onClick={() => setActiveFilter('Absent')}>
+                <div style={styles.statLabel}>❌ ABSENT</div>
+                <div style={styles.statValue}>{stats.absent}</div>
+              </div>
+              <div style={styles.statItem('#8b5cf6', activeFilter === 'On Leave')} onClick={() => setActiveFilter('On Leave')}>
+                <div style={styles.statLabel}>🏖️ ON LEAVE</div>
+                <div style={styles.statValue}>{stats.onLeave}</div>
+              </div>
+              <div style={styles.statItem('#ec4899', activeFilter === 'Penalties')} onClick={() => setActiveFilter('Penalties')}>
+                <div style={styles.statLabel}>⚡ AUTO PENALTIES</div>
+                <div style={styles.statValue}>2</div>
+              </div>
             </div>
 
             <div style={styles.liveBar}>
@@ -430,7 +445,11 @@ const Attendance = () => {
             </div>
 
             <div style={styles.actionBar}>
-              <div style={styles.searchBox}><span>🔍</span><input type="text" placeholder="Search by name, code or department..." style={styles.searchInput} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />{searchTerm && <span onClick={() => setSearchTerm('')} style={{ cursor: 'pointer' }}>✕</span>}</div>
+              <div style={styles.searchBox}>
+                <span>🔍</span>
+                <input type="text" placeholder="Search by name, code or department..." style={styles.searchInput} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                {searchTerm && <span onClick={() => setSearchTerm('')} style={{ cursor: 'pointer' }}>✕</span>}
+              </div>
               <div style={styles.buttonGroup}>
                 <button style={styles.actionBtn('#f3f4f6', '#374151')} onClick={handleExport}>📤 Export</button>
                 <button style={styles.actionBtn('#667eea', '#fff')} onClick={() => fileInputRef.current?.click()}>📥 Import</button>
@@ -440,70 +459,201 @@ const Attendance = () => {
 
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
-                <thead><tr><th style={styles.th}>👤 EMPLOYEE</th><th style={styles.th}>🔄 SHIFT</th><th style={styles.th}>⏰ CHECK IN</th><th style={styles.th}>⏰ CHECK OUT</th><th style={styles.th}>📌 STATUS</th><th style={styles.th}>📝 NOTES</th><th style={styles.th}>⚠️ LATES</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>👤 EMPLOYEE</th>
+                    <th style={styles.th}>🔄 SHIFT</th>
+                    <th style={styles.th}>⏰ CHECK IN</th>
+                    <th style={styles.th}>⏰ CHECK OUT</th>
+                    <th style={styles.th}>📌 STATUS</th>
+                    <th style={styles.th}>📝 NOTES</th>
+                    <th style={styles.th}>⚠️ LATES</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {filteredData.map(emp => (
                     <tr key={emp.id}>
-                      <td style={styles.td}><div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><div style={styles.avatar}>{emp.name.split(' ').map(n => n[0]).join('')}</div><div><div style={styles.employeeName}>{emp.name}</div><div style={styles.employeeCode}>{emp.code} · {emp.department}</div></div></div></td>
-                      <td style={styles.td}><div style={{ position: 'relative' }}><button style={styles.shiftBtn} onClick={() => setOpenShiftId(openShiftId === emp.id ? null : emp.id)}>{emp.shift} ▼</button>{openShiftId === emp.id && (<div style={styles.dropdown}>{shiftOptions.map(shift => (<div key={shift} style={styles.dropdownItem} onClick={() => updateShift(emp.id, shift)}>{shift}</div>))}</div>)}</div></td>
-                      <td style={styles.td}>{editingCheckIn === emp.id ? (<input type="time" defaultValue={emp.checkIn !== '--' ? emp.checkIn : '09:00'} style={styles.editableInput} onBlur={(e) => updateCheckIn(emp.id, e.target.value)} autoFocus />) : (<span style={styles.editableField} onClick={() => setEditingCheckIn(emp.id)}>🕐 {to12Hour(emp.checkIn)}</span>)}</td>
-                      <td style={styles.td}>{editingCheckOut === emp.id ? (<input type="time" defaultValue={emp.checkOut !== '--' ? emp.checkOut : '18:00'} style={styles.editableInput} onBlur={(e) => updateCheckOut(emp.id, e.target.value)} autoFocus />) : (<span style={styles.editableField} onClick={() => setEditingCheckOut(emp.id)}>🕔 {to12Hour(emp.checkOut)}</span>)}</td>
-                      <td style={styles.td}><div style={{ position: 'relative' }}><span style={styles.statusBadge(emp.status)} onClick={() => setOpenStatusId(openStatusId === emp.id ? null : emp.id)}>{emp.status} ▼</span>{openStatusId === emp.id && (<div style={styles.dropdown}>{['Present', 'Late', 'Absent', 'On Leave'].map(status => (<div key={status} style={styles.dropdownItem} onClick={() => updateStatus(emp.id, status as EmployeeStatus)}>{status}</div>))}</div>)}</div><tr>
-                      <td style={styles.td}>{editingNotes === emp.id ? (<input type="text" defaultValue={emp.notes} style={{ ...styles.editableInput, width: '140px' }} onBlur={(e) => updateNotes(emp.id, e.target.value)} autoFocus placeholder="Add note..." />) : (<span style={styles.notesText} onClick={() => setEditingNotes(emp.id)}>📝 {emp.notes || 'Click to edit'}</span>)}</td>
-                      <td style={styles.td}><button style={styles.latesLink} onClick={() => openDetailedReport(emp)}>{emp.latesCount}</button></td>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={styles.avatar}>{emp.name.split(' ').map(n => n[0]).join('')}</div>
+                          <div>
+                            <div style={styles.employeeName}>{emp.name}</div>
+                            <div style={styles.employeeCode}>{emp.code} · {emp.department}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ position: 'relative' }}>
+                          <button style={styles.shiftBtn} onClick={() => setOpenShiftId(openShiftId === emp.id ? null : emp.id)}>
+                            {emp.shift} ▼
+                          </button>
+                          {openShiftId === emp.id && (
+                            <div style={styles.dropdown}>
+                              {shiftOptions.map(shift => (
+                                <div key={shift} style={styles.dropdownItem} onClick={() => updateShift(emp.id, shift)}>
+                                  {shift}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        {editingCheckIn === emp.id ? (
+                          <input type="time" defaultValue={emp.checkIn !== '--' ? emp.checkIn : '09:00'} style={styles.editableInput} onBlur={(e) => updateCheckIn(emp.id, e.target.value)} autoFocus />
+                        ) : (
+                          <span style={styles.editableField} onClick={() => setEditingCheckIn(emp.id)}>🕐 {to12Hour(emp.checkIn)}</span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        {editingCheckOut === emp.id ? (
+                          <input type="time" defaultValue={emp.checkOut !== '--' ? emp.checkOut : '18:00'} style={styles.editableInput} onBlur={(e) => updateCheckOut(emp.id, e.target.value)} autoFocus />
+                        ) : (
+                          <span style={styles.editableField} onClick={() => setEditingCheckOut(emp.id)}>🕔 {to12Hour(emp.checkOut)}</span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ position: 'relative' }}>
+                          <span style={styles.statusBadge(emp.status)} onClick={() => setOpenStatusId(openStatusId === emp.id ? null : emp.id)}>
+                            {emp.status} ▼
+                          </span>
+                          {openStatusId === emp.id && (
+                            <div style={styles.dropdown}>
+                              {['Present', 'Late', 'Absent', 'On Leave'].map(status => (
+                                <div key={status} style={styles.dropdownItem} onClick={() => updateStatus(emp.id, status as EmployeeStatus)}>
+                                  {status}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        {editingNotes === emp.id ? (
+                          <input type="text" defaultValue={emp.notes} style={{ ...styles.editableInput, width: '140px' }} onBlur={(e) => updateNotes(emp.id, e.target.value)} autoFocus placeholder="Add note..." />
+                        ) : (
+                          <span style={styles.notesText} onClick={() => setEditingNotes(emp.id)}>📝 {emp.notes || 'Click to edit'}</span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        <button style={styles.latesLink} onClick={() => openDetailedReport(emp)}>
+                          {emp.latesCount}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {filteredData.length === 0 && (<div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No matching records found</div>)}
+              {filteredData.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No matching records found</div>
+              )}
             </div>
 
-            <div style={styles.footerText}><span>📊 Showing {filteredData.length} of {data.length} staff · Click shift/status to override</span><span>🔄 Auto-sync · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+            <div style={styles.footerText}>
+              <span>📊 Showing {filteredData.length} of {data.length} staff · Click shift/status to override</span>
+              <span>🔄 Auto-sync · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
           </div>
         </div>
 
         {/* RIGHT COLUMN */}
         <div style={styles.rightColumn}>
           <div style={styles.card}>
-            <div style={styles.penaltyHeader}><div style={styles.penaltyTitle}>⚙️ Penalty Engine</div><div style={styles.penaltySub}>Backend rule book · runs nightly</div></div>
+            <div style={styles.penaltyHeader}>
+              <div style={styles.penaltyTitle}>⚙️ Penalty Engine</div>
+              <div style={styles.penaltySub}>Backend rule book · runs nightly</div>
+            </div>
             <div style={styles.penaltyGrid}>
-              <div style={{ backgroundColor: '#fef3c7', padding: '10px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', fontSize: '12px', fontWeight: '700', color: '#92400e' }}>🔥 3 Lates = 1 Day Cut</div>
-              <div style={styles.penaltyItem}><div style={styles.penaltyItemTitle}>⏰ Late Arrival</div><div style={styles.penaltyDesc}>CheckIn &gt; ShiftStart + 10m</div><div style={styles.penaltyValue}>−3 Days Salary</div></div>
-              <div style={styles.penaltyItem}><div style={styles.penaltyItemTitle}>📅 Saturday Absent</div><div style={styles.penaltyDesc}>Day=Sat &amp; Status=Absent &amp; !Leave</div><div style={styles.penaltyValue}>−2 Days + 1 CL Cut</div></div>
-              <div style={styles.penaltyItem}><div style={styles.penaltyItemTitle}>📝 Uninformed Leave</div><div style={styles.penaltyDesc}>Status=Absent &amp; No Application</div><div style={styles.penaltyValue}>Paid · No Deduction</div></div>
-              <div style={styles.penaltyItem}><div style={styles.penaltyItemTitle}>✅ CEO Approved</div><div style={styles.penaltyDesc}>Leave.Approver = CEO</div><div style={styles.penaltyValue}>Waived</div></div>
+              <div style={{ backgroundColor: '#fef3c7', padding: '10px', borderRadius: '12px', marginBottom: '16px', textAlign: 'center', fontSize: '12px', fontWeight: '700', color: '#92400e' }}>
+                🔥 3 Lates = 1 Day Cut
+              </div>
+              <div style={styles.penaltyItem}>
+                <div style={styles.penaltyItemTitle}>⏰ Late Arrival</div>
+                <div style={styles.penaltyDesc}>CheckIn &gt; ShiftStart + 10m</div>
+                <div style={styles.penaltyValue}>−3 Days Salary</div>
+              </div>
+              <div style={styles.penaltyItem}>
+                <div style={styles.penaltyItemTitle}>📅 Saturday Absent</div>
+                <div style={styles.penaltyDesc}>Day=Sat &amp; Status=Absent &amp; !Leave</div>
+                <div style={styles.penaltyValue}>−2 Days + 1 CL Cut</div>
+              </div>
+              <div style={styles.penaltyItem}>
+                <div style={styles.penaltyItemTitle}>📝 Uninformed Leave</div>
+                <div style={styles.penaltyDesc}>Status=Absent &amp; No Application</div>
+                <div style={styles.penaltyValue}>Paid · No Deduction</div>
+              </div>
+              <div style={styles.penaltyItem}>
+                <div style={styles.penaltyItemTitle}>✅ CEO Approved</div>
+                <div style={styles.penaltyDesc}>Leave.Approver = CEO</div>
+                <div style={styles.penaltyValue}>Waived</div>
+              </div>
             </div>
           </div>
 
           <div style={styles.card}>
-            <div style={styles.rosterHeader}><div style={styles.penaltyTitle}>📅 Duty Roster · Is Hafte</div><div style={styles.penaltySub}>Click on any cell to change shift cycle</div></div>
+            <div style={styles.rosterHeader}>
+              <div style={styles.penaltyTitle}>📅 Duty Roster · Is Hafte</div>
+              <div style={styles.penaltySub}>Click on any cell to change shift cycle</div>
+            </div>
             <div style={{ padding: '0 16px', overflowX: 'auto' }}>
               <table style={styles.rosterTable}>
-                <thead><tr><th style={styles.rosterTh}>Staff</th><th style={styles.rosterTh}>Mon</th><th style={styles.rosterTh}>Tue</th><th style={styles.rosterTh}>Wed</th><th style={styles.rosterTh}>Thu</th><th style={styles.rosterTh}>Fri</th><th style={styles.rosterTh}>Sat</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th style={styles.rosterTh}>Staff</th>
+                    <th style={styles.rosterTh}>Mon</th>
+                    <th style={styles.rosterTh}>Tue</th>
+                    <th style={styles.rosterTh}>Wed</th>
+                    <th style={styles.rosterTh}>Thu</th>
+                    <th style={styles.rosterTh}>Fri</th>
+                    <th style={styles.rosterTh}>Sat</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {roster.map((staff, idx) => (
                     <tr key={idx}>
                       <td style={{ ...styles.rosterTd, fontWeight: '600' }}>{staff.name}</td>
                       {['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map(day => {
                         const currentVal = staff[day as keyof RosterStaff] as string;
-                        const getColor = () => { if (currentVal === 'M') return '#dcfce7'; if (currentVal === 'E') return '#fed7aa'; if (currentVal === 'N') return '#e0e7ff'; return '#fee2e2'; };
-                        return (<td key={day} style={{ ...styles.rosterTd, backgroundColor: getColor(), fontWeight: '600' }} onClick={() => { const currentIndex = rosterOptions.indexOf(currentVal); const nextIndex = (currentIndex + 1) % rosterOptions.length; updateRosterShift(staff.name, day, rosterOptions[nextIndex]); }}>{currentVal}</td>);
+                        const getColor = () => { 
+                          if (currentVal === 'M') return '#dcfce7'; 
+                          if (currentVal === 'E') return '#fed7aa'; 
+                          if (currentVal === 'N') return '#e0e7ff'; 
+                          return '#fee2e2'; 
+                        };
+                        return (
+                          <td 
+                            key={day} 
+                            style={{ ...styles.rosterTd, backgroundColor: getColor(), fontWeight: '600' }} 
+                            onClick={() => { 
+                              const currentIndex = rosterOptions.indexOf(currentVal); 
+                              const nextIndex = (currentIndex + 1) % rosterOptions.length; 
+                              updateRosterShift(staff.name, day, rosterOptions[nextIndex]); 
+                            }}
+                          >
+                            {currentVal}
+                          </td>
+                        );
                       })}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={styles.rosterLegend}><span>🟢 M = Morning</span><span>🟠 E = Evening</span><span>🔵 N = Night</span><span>🔴 Off = Off</span><span style={{ marginLeft: 'auto' }}>🔄 Click to cycle: M→E→N→Off→M</span></div>
+            <div style={styles.rosterLegend}>
+              <span>🟢 M = Morning</span>
+              <span>🟠 E = Evening</span>
+              <span>🔵 N = Night</span>
+              <span>🔴 Off = Off</span>
+              <span style={{ marginLeft: 'auto' }}>🔄 Click to cycle: M→E→N→Off→M</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* COLORFUL REPORT MODAL - Like time-tales-tracker */}
+      {/* COLORFUL REPORT MODAL */}
       {selectedEmployee && (
         <div style={styles.modalOverlay} onClick={closeReport}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            {/* Colorful Header */}
             <div style={styles.reportHeader}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -514,22 +664,31 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* Colorful Stats Cards */}
             <div style={styles.statsRow}>
-              <div style={styles.reportStatCard('#f59e0b')}><div style={styles.reportStatLabel}>📅 Late Days</div><div style={styles.reportStatValue}>{empStats.lateDays}</div></div>
-              <div style={styles.reportStatCard('#ef4444')}><div style={styles.reportStatLabel}>❌ Absent</div><div style={styles.reportStatValue}>{empStats.absent}</div></div>
-              <div style={styles.reportStatCard('#8b5cf6')}><div style={styles.reportStatLabel}>⏱️ Total Late</div><div style={styles.reportStatValue}>{empStats.totalLateMins}<span style={styles.reportStatUnit}>m</span></div></div>
-              <div style={styles.reportStatCard('#10b981')}><div style={styles.reportStatLabel}>💼 Worked Hours</div><div style={styles.reportStatValue}>{empStats.workedHours}<span style={styles.reportStatUnit}>h</span></div></div>
+              <div style={styles.reportStatCard('#f59e0b')}>
+                <div style={styles.reportStatLabel}>📅 Late Days</div>
+                <div style={styles.reportStatValue}>{empStats.lateDays}</div>
+              </div>
+              <div style={styles.reportStatCard('#ef4444')}>
+                <div style={styles.reportStatLabel}>❌ Absent</div>
+                <div style={styles.reportStatValue}>{empStats.absent}</div>
+              </div>
+              <div style={styles.reportStatCard('#8b5cf6')}>
+                <div style={styles.reportStatLabel}>⏱️ Total Late</div>
+                <div style={styles.reportStatValue}>{empStats.totalLateMins}<span style={styles.reportStatUnit}>m</span></div>
+              </div>
+              <div style={styles.reportStatCard('#10b981')}>
+                <div style={styles.reportStatLabel}>💼 Worked Hours</div>
+                <div style={styles.reportStatValue}>{empStats.workedHours}<span style={styles.reportStatUnit}>h</span></div>
+              </div>
             </div>
 
-            {/* Month Navigation */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', padding: '0 28px', marginBottom: '10px' }}>
               <button onClick={prevMonth} style={styles.shiftBtn}>← Previous Month</button>
               <span style={{ fontWeight: '600' }}>{monthNames[currentMonth]} {currentYear}</span>
               <button onClick={nextMonth} style={styles.shiftBtn}>Next Month →</button>
             </div>
 
-            {/* Weekly Calendar View */}
             {weeks.map((week, weekIdx) => {
               const weekStart = week.find(d => d !== null);
               if (!weekStart) return null;
