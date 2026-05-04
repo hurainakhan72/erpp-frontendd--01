@@ -2,133 +2,119 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { getStatusColor } from '../services/api';
-import { Plus, Search, Eye, Pencil, ChevronUp, ChevronDown, ArrowUpDown, UserX, Users } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, ChevronUp, ChevronDown, ArrowUpDown, UserX } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useToastContext } from '../context/ToastContext';
 
-// ─── Inline styles matching Dashboard aesthetic ───────────────────────────────
-const S = `
-  *{box-sizing:border-box;}
-  @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  .emp-pg{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;padding:22px 28px;background:#f0f2f8;min-height:100vh;}
-
-  /* Header */
-  .emp-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
-  .emp-title{margin:0;font-size:27px;font-weight:800;color:#1e1b4b;line-height:1.15;}
-  .emp-sub{margin:4px 0 0;font-size:11px;color:#9ca3af;}
-  .emp-count-badge{display:inline-flex;align-items:center;gap:5px;background:#dcfce7;padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;color:#166534;margin-left:10px;}
-  .emp-count-dot{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pulse 1.5s infinite;}
-
-  /* Add button */
-  .emp-add-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:30px;padding:9px 20px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(99,102,241,.4);transition:opacity .15s,transform .15s;}
-  .emp-add-btn:hover{opacity:.9;transform:translateY(-1px);}
-
-  /* Filter card */
-  .emp-card{background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 1px 10px rgba(0,0,0,.07);animation:up .4s ease both;}
-
-  /* Inputs */
-  .emp-input{height:36px;border:1px solid #e5e7eb;border-radius:10px;padding:0 12px;font-size:12px;color:#374151;outline:none;transition:border .15s,box-shadow .15s;background:#fafafa;width:100%;}
-  .emp-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background:#fff;}
-  .emp-select{height:36px;border:1px solid #e5e7eb;border-radius:10px;padding:0 10px;font-size:12px;color:#374151;outline:none;background:#fafafa;cursor:pointer;transition:border .15s;}
-  .emp-select:focus{border-color:#6366f1;background:#fff;}
-  .emp-search-wrap{position:relative;flex:1;min-width:200px;}
-  .emp-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;}
-  .emp-search-wrap .emp-input{padding-left:34px;}
-
-  /* Clear btn */
-  .emp-clear-btn{height:36px;padding:0 14px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;font-size:11px;font-weight:600;color:#6b7280;cursor:pointer;white-space:nowrap;transition:background .12s,color .12s;}
-  .emp-clear-btn:hover{background:#f3f4f6;color:#374151;}
-
-  /* Checkbox toggle */
-  .emp-check-label{font-size:11px;display:flex;align-items:center;gap:5px;cursor:pointer;color:#6b7280;white-space:nowrap;}
-
-  /* Bulk action bar */
-  .emp-bulk-bar{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:14px;padding:10px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;animation:up .25s ease;}
-  .emp-bulk-count{font-size:12px;font-weight:700;color:#6366f1;}
-  .emp-terminate-btn{background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:8px;padding:7px 14px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:opacity .15s;}
-  .emp-terminate-btn:hover{opacity:.85;}
-
-  /* Table */
-  .emp-table-wrap{overflow-x:auto;border-radius:12px;border:1px solid #f1f5f9;}
-  .emp-table{width:100%;border-collapse:collapse;font-size:12px;}
-  .emp-table thead tr{background:linear-gradient(135deg,#f8f9ff,#f3f4f6);}
-  .emp-table th{padding:11px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #f1f5f9;cursor:pointer;user-select:none;}
-  .emp-table th:hover{color:#6366f1;}
-  .emp-table td{padding:11px 14px;border-bottom:1px solid #f8f9fb;color:#374151;vertical-space:middle;vertical-align:middle;}
-  .emp-table tbody tr{transition:background .1s;}
-  .emp-table tbody tr:hover{background:#f5f7ff;}
-  .emp-table tbody tr:last-child td{border-bottom:none;}
-
-  /* Avatar */
-  .emp-avatar{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
-  .emp-name-cell{display:flex;align-items:center;gap:9px;font-weight:600;color:#1e1b4b;}
-
-  /* Pills */
-  .emp-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap;}
-  .pill-active{background:#dcfce7;color:#166534;}
-  .pill-probation{background:#fef3c7;color:#d97706;}
-  .pill-terminated{background:#fef2f2;color:#dc2626;}
-  .pill-notice{background:#eff6ff;color:#2563eb;}
-  .pill-default{background:#f3f4f6;color:#6b7280;}
-
-  /* Action icons */
-  .emp-ico{width:28px;height:28px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;transition:all .15s;}
-  .emp-ico:hover{background:#eff6ff;border-color:#c7d2fe;color:#6366f1;}
-
-  /* Mono */
-  .emp-mono{font-family:'SF Mono',Consolas,monospace;font-size:10.5px;color:#9ca3af;}
-
-  /* Pagination */
-  .emp-pag-btn{height:30px;padding:0 10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:11px;color:#374151;cursor:pointer;transition:all .12s;display:flex;align-items:center;}
-  .emp-pag-btn:hover:not(:disabled){background:#eff6ff;border-color:#c7d2fe;color:#6366f1;}
-  .emp-pag-btn:disabled{opacity:.4;cursor:default;}
-  .emp-pag-btn.active{background:linear-gradient(135deg,#6366f1,#8b5cf6);border-color:#6366f1;color:#fff;}
-  .emp-per-page{height:30px;border:1px solid #e5e7eb;border-radius:8px;padding:0 8px;font-size:11px;color:#374151;background:#fff;cursor:pointer;}
-
-  /* Section header */
-  .emp-sec-head{display:flex;align-items:center;gap:7px;margin-bottom:14px;}
-  .emp-sec-title{font-size:13px;font-weight:700;color:#1e1b4b;}
-  .emp-badge{padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap;}
-
-  /* Empty state */
-  .emp-empty{text-align:center;padding:50px 20px;color:#9ca3af;}
-  .emp-empty-icon{font-size:32px;margin-bottom:10px;}
+// ─── Global CSS ───────────────────────────────────────────────────────────────
+const CSS = `
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .emp-page { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; padding:22px 28px; background:#f0f2f8; min-height:100vh; }
+  .emp-card { background:#fff; border-radius:16px; padding:18px 20px; box-shadow:0 1px 10px rgba(0,0,0,.07); animation:fadeUp .35s ease both; }
+  .emp-input {
+    height:36px; border:1.5px solid #e5e7eb; border-radius:10px; padding:0 12px;
+    font-size:12px; color:#374151; background:#fff; outline:none; transition:border .15s,box-shadow .15s;
+    font-family:inherit;
+  }
+  .emp-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+  .emp-select { cursor:pointer; padding-right:28px; }
+  .emp-table { width:100%; border-collapse:collapse; }
+  .emp-table thead tr { border-bottom:2px solid #f1f5f9; }
+  .emp-table th {
+    text-align:left; padding:10px 12px; font-size:10px; font-weight:700;
+    color:#9ca3af; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;
+    user-select:none;
+  }
+  .emp-table th.sortable { cursor:pointer; }
+  .emp-table th.sortable:hover { color:#6366f1; }
+  .emp-table td { padding:10px 12px; font-size:12px; color:#374151; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+  .emp-table tbody tr { transition:background .1s; }
+  .emp-table tbody tr:hover td { background:#f8faff; }
+  .emp-table tbody tr:last-child td { border-bottom:none; }
+  .emp-avatar {
+    width:32px; height:32px; border-radius:10px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; flex-shrink:0;
+  }
+  .emp-pill {
+    display:inline-flex; align-items:center; padding:3px 9px; border-radius:20px;
+    font-size:9px; font-weight:700; white-space:nowrap;
+  }
+  .emp-pill-active    { background:#dcfce7; color:#166534; }
+  .emp-pill-probation { background:#fef3c7; color:#d97706; }
+  .emp-pill-notice    { background:#fee2e2; color:#dc2626; }
+  .emp-pill-terminated{ background:#f3f4f6; color:#6b7280; }
+  .emp-pill-default   { background:#eff6ff; color:#2563eb; }
+  .emp-ico-btn {
+    width:28px; height:28px; border:1.5px solid #e5e7eb; border-radius:8px;
+    background:#fff; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+    color:#6b7280; transition:all .15s;
+  }
+  .emp-ico-btn:hover { background:#6366f1; border-color:#6366f1; color:#fff; }
+  .emp-btn {
+    height:36px; border:none; border-radius:10px; padding:0 16px; font-size:12px;
+    font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    transition:opacity .15s,transform .15s; font-family:inherit;
+  }
+  .emp-btn:hover { opacity:.88; transform:translateY(-1px); }
+  .emp-btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; box-shadow:0 4px 14px rgba(99,102,241,.35); }
+  .emp-btn-danger  { background:#fee2e2; color:#dc2626; }
+  .emp-btn-ghost   { background:#f3f4f6; color:#374151; border:1.5px solid #e5e7eb; }
+  .emp-btn-ghost:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .emp-btn-pg      { height:30px; min-width:30px; padding:0 10px; border-radius:8px; font-size:11px; }
+  .emp-btn-pg-active { background:#6366f1; color:#fff; box-shadow:0 2px 8px rgba(99,102,241,.3); }
+  .emp-bulk { background:#eff6ff; border:1.5px solid #c7d2fe; border-radius:14px; padding:10px 16px; margin-bottom:12px; display:flex; align-items:center; gap:12px; animation:fadeUp .2s ease both; }
+  .emp-check { accent-color:#6366f1; width:14px; height:14px; cursor:pointer; }
+  ::-webkit-scrollbar { height:4px; width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:4px; }
 `;
 
 const getInitials = (name: string) =>
-  name.split(' ').filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  name.split(' ').filter(Boolean).map(part => part[0]).join('').slice(0, 2).toUpperCase();
 
-const getPillClass = (status: string) => {
-  if (!status) return 'emp-pill pill-default';
-  const s = status.toLowerCase();
-  if (s.includes('active'))     return 'emp-pill pill-active';
-  if (s.includes('probation'))  return 'emp-pill pill-probation';
-  if (s.includes('terminated')) return 'emp-pill pill-terminated';
-  if (s.includes('notice'))     return 'emp-pill pill-notice';
-  return 'emp-pill pill-default';
+// ── Avatar color from name hash ──
+const avatarGradients = [
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#ec4899,#f9a8d4)',
+  'linear-gradient(135deg,#f97316,#fbbf24)',
+  'linear-gradient(135deg,#14b8a6,#06b6d4)',
+  'linear-gradient(135deg,#10b981,#34d399)',
+  'linear-gradient(135deg,#3b82f6,#60a5fa)',
+];
+const nameGrad = (name: string) => avatarGradients[name.charCodeAt(0) % avatarGradients.length];
+
+// ── Status pill mapping ──
+const pillClass = (status: string) => {
+  const s = status?.toLowerCase();
+  if (s === 'active')     return 'emp-pill emp-pill-active';
+  if (s === 'probation')  return 'emp-pill emp-pill-probation';
+  if (s?.includes('notice')) return 'emp-pill emp-pill-notice';
+  if (s === 'terminated') return 'emp-pill emp-pill-terminated';
+  return 'emp-pill emp-pill-default';
 };
 
 type SortKey = 'id' | 'name' | 'department' | 'designation' | 'employmentType' | 'jobStatus' | 'shift' | 'dateOfJoining';
 type SortDir = 'asc' | 'desc';
 
+// ══════════════════════════════════════════════════════════════════════════════
 export default function Employees() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { employees, setEmployees, departments, jobStatuses, workModes } = useData();
-  const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [modeFilter, setModeFilter] = useState('');
-  const [showTerminated, setShowTerminated] = useState(false);
+  const [search,           setSearch]           = useState('');
+  const [deptFilter,       setDeptFilter]       = useState('');
+  const [statusFilter,     setStatusFilter]     = useState('');
+  const [modeFilter,       setModeFilter]       = useState('');
+  const [showTerminated,   setShowTerminated]   = useState(false);
   const [terminateConfirm, setTerminateConfirm] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sortKey, setSortKey] = useState<SortKey>('id');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [page, setPage] = useState(0);
-  const [perPage, setPerPage] = useState(25);
+  const [selected,         setSelected]         = useState<Set<string>>(new Set());
+  const [sortKey,          setSortKey]          = useState<SortKey>('id');
+  const [sortDir,          setSortDir]          = useState<SortDir>('asc');
+  const [page,             setPage]             = useState(0);
+  const [perPage,          setPerPage]          = useState(25);
 
-  // ── All logic identical to original ──────────────────────────────────────────
+  // ── All original logic unchanged ──────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = employees.filter(e => {
       if (!showTerminated && e.jobStatus === 'Terminated') return false;
@@ -148,7 +134,7 @@ export default function Employees() {
   }, [employees, search, deptFilter, statusFilter, modeFilter, sortKey, sortDir, showTerminated]);
 
   const totalPages = Math.ceil(filtered.length / perPage);
-  const paged = filtered.slice(page * perPage, (page + 1) * perPage);
+  const paged      = filtered.slice(page * perPage, (page + 1) * perPage);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -175,169 +161,235 @@ export default function Employees() {
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return <ArrowUpDown size={10} style={{ opacity: .3, marginLeft: 3 }} />;
     return sortDir === 'asc'
-      ? <ChevronUp size={10} style={{ marginLeft: 3, color: '#6366f1' }} />
+      ? <ChevronUp   size={10} style={{ marginLeft: 3, color: '#6366f1' }} />
       : <ChevronDown size={10} style={{ marginLeft: 3, color: '#6366f1' }} />;
   };
 
   const activeCount = employees.filter(e => e.jobStatus !== 'Terminated').length;
+  const hasFilters  = search || deptFilter || statusFilter || modeFilter;
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      <style>{S}</style>
-      <div className="emp-pg">
+      <style>{CSS}</style>
+      <div className="emp-page">
 
-        {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
-        <div className="emp-head">
+        {/* ── Page Header ── */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>Organization</p>
-            <h1 className="emp-title">
-              Employees
-              <span className="emp-count-badge">
-                <span className="emp-count-dot" />
-                {activeCount} Active
-              </span>
-            </h1>
-            <p className="emp-sub">Manage all employees in your organization</p>
+            <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:'#1e1b4b' }}>Employees</h1>
+            <p style={{ margin:'4px 0 0', fontSize:12, color:'#9ca3af' }}>
+              Manage all employees in your organization &nbsp;·&nbsp;
+              <span style={{ color:'#6366f1', fontWeight:600 }}>{activeCount} active</span>
+            </p>
           </div>
-          <button className="emp-add-btn" onClick={() => navigate('/employees/add')}>
+          <button className="emp-btn emp-btn-primary" onClick={() => navigate('/employees/add')}>
             <Plus size={13} /> Add Employee
           </button>
         </div>
 
-        {/* ══ FILTER CARD ═════════════════════════════════════════════════════ */}
-        <div className="emp-card" style={{ marginBottom: 12 }}>
-          <div className="emp-sec-head">
-            <Search size={14} color="#6366f1" />
-            <span className="emp-sec-title">Filter Employees</span>
-            {(search || deptFilter || statusFilter || modeFilter) && (
-              <span className="emp-badge" style={{ background: '#eff6ff', color: '#6366f1', marginLeft: 'auto' }}>
-                Filters active
-              </span>
-            )}
-          </div>
+        {/* ── Filters + Search — same card as table ── */}
+        <div className="emp-card" style={{ marginBottom:12 }}>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Search — stays inside filter card, above table */}
-            <div className="emp-search-wrap">
-              <Search size={14} className="emp-search-icon" />
+          {/* Filter bar */}
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center', marginBottom:16 }}>
+
+            {/* Search */}
+            <div style={{ position:'relative', flex:1, minWidth:200 }}>
+              <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'#9ca3af' }} />
               <input
                 className="emp-input"
+                style={{ paddingLeft:32, width:'100%' }}
                 placeholder="Search by name or ID..."
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(0); }}
               />
             </div>
 
-            <select className="emp-select" style={{ width: 160 }} value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setPage(0); }}>
+            {/* Department */}
+            <select
+              className="emp-input emp-select"
+              style={{ width:160 }}
+              value={deptFilter}
+              onChange={e => { setDeptFilter(e.target.value); setPage(0); }}
+            >
               <option value="">All Departments</option>
               {departments.map(d => <option key={d}>{d}</option>)}
             </select>
 
-            <select className="emp-select" style={{ width: 140 }} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}>
+            {/* Status */}
+            <select
+              className="emp-input emp-select"
+              style={{ width:140 }}
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+            >
               <option value="">All Statuses</option>
               {jobStatuses.map(s => <option key={s}>{s}</option>)}
             </select>
 
-            <select className="emp-select" style={{ width: 140 }} value={modeFilter} onChange={e => { setModeFilter(e.target.value); setPage(0); }}>
+            {/* Work Mode */}
+            <select
+              className="emp-input emp-select"
+              style={{ width:140 }}
+              value={modeFilter}
+              onChange={e => { setModeFilter(e.target.value); setPage(0); }}
+            >
               <option value="">All Work Modes</option>
               {workModes.map(m => <option key={m}>{m}</option>)}
             </select>
 
-            <label className="emp-check-label">
-              <input type="checkbox" checked={showTerminated} onChange={e => setShowTerminated(e.target.checked)} />
+            {/* Show terminated */}
+            <label style={{ fontSize:11, display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:'#6b7280', userSelect:'none' }}>
+              <input
+                type="checkbox"
+                className="emp-check"
+                checked={showTerminated}
+                onChange={e => setShowTerminated(e.target.checked)}
+              />
               Show terminated
             </label>
 
-            {(search || deptFilter || statusFilter || modeFilter) && (
-              <button className="emp-clear-btn" onClick={clearFilters}>Clear All</button>
+            {/* Clear filters */}
+            {hasFilters && (
+              <button className="emp-btn emp-btn-ghost" style={{ height:32, fontSize:11 }} onClick={clearFilters}>
+                Clear All ✕
+              </button>
             )}
           </div>
-        </div>
 
-        {/* ══ BULK ACTION BAR ══════════════════════════════════════════════════ */}
-        {selected.size > 0 && (
-          <div className="emp-bulk-bar">
-            <Users size={14} color="#6366f1" />
-            <span className="emp-bulk-count">{selected.size} employee{selected.size > 1 ? 's' : ''} selected</span>
-            <div style={{ flex: 1 }} />
-            <button className="emp-terminate-btn" onClick={() => setTerminateConfirm(true)}>
-              <UserX size={12} /> Terminate Selected
-            </button>
-          </div>
-        )}
-
-        {/* ══ TABLE CARD ═══════════════════════════════════════════════════════ */}
-        <div className="emp-card">
-          <div className="emp-sec-head">
-            <Users size={14} color="#6366f1" />
-            <span className="emp-sec-title">All Employees</span>
-            <span className="emp-badge" style={{ background: '#eff6ff', color: '#6366f1', marginLeft: 'auto' }}>
-              {filtered.length} records
+          {/* Results count */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+            <span style={{ fontSize:11, color:'#9ca3af' }}>
+              {filtered.length === 0
+                ? 'No results'
+                : `Showing ${filtered.length} employee${filtered.length !== 1 ? 's' : ''}${hasFilters ? ' (filtered)' : ''}`}
             </span>
+            {selected.size > 0 && (
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:11, fontWeight:600, color:'#6366f1' }}>{selected.size} selected</span>
+                <button className="emp-btn emp-btn-danger" style={{ height:30, fontSize:11 }} onClick={() => setTerminateConfirm(true)}>
+                  <UserX size={11} /> Terminate Selected
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="emp-table-wrap">
+          {/* ── Table ── */}
+          <div style={{ overflowX:'auto' }}>
             <table className="emp-table">
               <thead>
                 <tr>
-                  <th style={{ width: 36 }}>
-                    <input type="checkbox" checked={paged.length > 0 && selected.size === paged.length} onChange={selectAll} />
+                  <th style={{ width:36 }}>
+                    <input
+                      type="checkbox"
+                      className="emp-check"
+                      checked={paged.length > 0 && selected.size === paged.length}
+                      onChange={selectAll}
+                    />
                   </th>
-                  <th onClick={() => toggleSort('id')}>Emp ID <SortIcon col="id" /></th>
-                  <th onClick={() => toggleSort('name')}>Name <SortIcon col="name" /></th>
-                  <th onClick={() => toggleSort('department')}>Department <SortIcon col="department" /></th>
-                  <th onClick={() => toggleSort('designation')}>Designation <SortIcon col="designation" /></th>
-                  <th onClick={() => toggleSort('employmentType')}>Type <SortIcon col="employmentType" /></th>
-                  <th onClick={() => toggleSort('jobStatus')}>Status <SortIcon col="jobStatus" /></th>
+                  <th className="sortable" onClick={() => toggleSort('id')}>Emp ID <SortIcon col="id" /></th>
+                  <th className="sortable" onClick={() => toggleSort('name')}>Name <SortIcon col="name" /></th>
+                  <th className="sortable" onClick={() => toggleSort('department')}>Department <SortIcon col="department" /></th>
+                  <th className="sortable" onClick={() => toggleSort('designation')}>Designation <SortIcon col="designation" /></th>
+                  <th className="sortable" onClick={() => toggleSort('employmentType')}>Type <SortIcon col="employmentType" /></th>
+                  <th className="sortable" onClick={() => toggleSort('jobStatus')}>Status <SortIcon col="jobStatus" /></th>
                   <th>Shift</th>
-                  <th onClick={() => toggleSort('dateOfJoining')}>Joined <SortIcon col="dateOfJoining" /></th>
+                  <th className="sortable" onClick={() => toggleSort('dateOfJoining')}>Joined <SortIcon col="dateOfJoining" /></th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paged.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
-                      <div className="emp-empty">
-                        <div className="emp-empty-icon">👥</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>No employees found</div>
-                        <div style={{ fontSize: 11 }}>Try adjusting your filters</div>
-                      </div>
+                    <td colSpan={10} style={{ textAlign:'center', padding:'48px 20px' }}>
+                      <div style={{ fontSize:28, marginBottom:8 }}>🔍</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#374151', marginBottom:4 }}>No employees found</div>
+                      <div style={{ fontSize:11, color:'#9ca3af' }}>Try adjusting your search or filters</div>
                     </td>
                   </tr>
                 ) : paged.map(e => (
                   <tr
                     key={e.id}
                     style={{
-                      ...(selected.has(e.id) ? { background: '#f5f3ff' } : {}),
-                      ...(e.jobStatus === 'Terminated' ? { opacity: 0.5 } : {}),
+                      ...(selected.has(e.id) ? { background:'#f5f3ff' } : {}),
+                      ...(e.jobStatus === 'Terminated' ? { opacity:0.5 } : {}),
                     }}
                   >
+                    {/* Checkbox */}
                     <td>
-                      <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggleSelect(e.id)} />
+                      <input
+                        type="checkbox"
+                        className="emp-check"
+                        checked={selected.has(e.id)}
+                        onChange={() => toggleSelect(e.id)}
+                      />
                     </td>
-                    <td className="emp-mono">{e.id}</td>
+
+                    {/* Emp ID */}
                     <td>
-                      <div className="emp-name-cell">
-                        <div className="emp-avatar">{e.avatar || getInitials(e.name)}</div>
-                        <span>{e.name}</span>
+                      <span style={{ fontFamily:'monospace', fontSize:11, background:'#f3f4f6', padding:'2px 7px', borderRadius:6, color:'#374151', fontWeight:600 }}>
+                        {e.id}
+                      </span>
+                    </td>
+
+                    {/* Name + Avatar */}
+                    <td>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <div className="emp-avatar" style={{ background: nameGrad(e.name) }}>
+                          {e.avatar || getInitials(e.name)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight:600, color:'#1e1b4b', fontSize:12 }}>{e.name}</div>
+                        </div>
                       </div>
                     </td>
-                    <td style={{ color: '#6b7280' }}>{e.department}</td>
-                    <td style={{ color: '#6b7280' }}>{e.designation}</td>
-                    <td style={{ color: '#6b7280', fontSize: 11 }}>{e.employmentType}</td>
+
+                    {/* Department */}
                     <td>
-                      <span className={getPillClass(e.jobStatus)}>{e.jobStatus}</span>
+                      <span style={{ fontSize:11, color:'#6b7280' }}>{e.department}</span>
                     </td>
-                    <td style={{ fontSize: 11.5, color: '#6b7280' }}>{e.shift}</td>
-                    <td className="emp-mono">{e.dateOfJoining}</td>
+
+                    {/* Designation */}
                     <td>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <button className="emp-ico" title="View" onClick={() => navigate(`/employees/${e.id}`)}>
+                      <span style={{ fontSize:11, color:'#374151' }}>{e.designation}</span>
+                    </td>
+
+                    {/* Employment Type */}
+                    <td>
+                      <span style={{ fontSize:10, background:'#f3f4f6', padding:'2px 8px', borderRadius:20, color:'#6b7280', fontWeight:600 }}>
+                        {e.employmentType}
+                      </span>
+                    </td>
+
+                    {/* Status */}
+                    <td>
+                      <span className={pillClass(e.jobStatus)}>
+                        {e.jobStatus}
+                      </span>
+                    </td>
+
+                    {/* Shift */}
+                    <td style={{ fontSize:11, color:'#6b7280' }}>{e.shift}</td>
+
+                    {/* Joined */}
+                    <td style={{ fontFamily:'monospace', fontSize:11, color:'#9ca3af' }}>{e.dateOfJoining}</td>
+
+                    {/* Actions */}
+                    <td>
+                      <div style={{ display:'flex', gap:5 }}>
+                        <button
+                          className="emp-ico-btn"
+                          title="View"
+                          onClick={() => navigate(`/employees/${e.id}`)}
+                        >
                           <Eye size={13} />
                         </button>
-                        <button className="emp-ico" title="Edit" onClick={() => navigate('/employees/add')}>
+                        <button
+                          className="emp-ico-btn"
+                          title="Edit"
+                          onClick={() => navigate('/employees/add')}
+                        >
                           <Pencil size={13} />
                         </button>
                       </div>
@@ -349,41 +401,52 @@ export default function Employees() {
           </div>
 
           {/* ── Pagination ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, fontSize: 12, color: '#9ca3af', flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:14, flexWrap:'wrap', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:'#9ca3af' }}>
               <span>
-                Showing{' '}
-                <strong style={{ color: '#374151' }}>
+                Showing&nbsp;
+                <strong style={{ color:'#374151' }}>
                   {filtered.length === 0 ? 0 : page * perPage + 1}–{Math.min((page + 1) * perPage, filtered.length)}
-                </strong>{' '}
-                of <strong style={{ color: '#374151' }}>{filtered.length}</strong>
+                </strong>
+                &nbsp;of&nbsp;
+                <strong style={{ color:'#374151' }}>{filtered.length}</strong>
               </span>
               <select
-                className="emp-per-page"
+                className="emp-input"
+                style={{ width:60, height:28, padding:'0 6px', fontSize:11 }}
                 value={perPage}
                 onChange={e => { setPerPage(+e.target.value); setPage(0); }}
               >
-                {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+                {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
+              <span>per page</span>
             </div>
 
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button className="emp-pag-btn" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
+            <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+              <button
+                className="emp-btn emp-btn-ghost emp-btn-pg"
+                disabled={page === 0}
+                onClick={() => setPage(p => p - 1)}
+              >← Prev</button>
+
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => (
                 <button
                   key={i}
-                  className={`emp-pag-btn${page === i ? ' active' : ''}`}
+                  className={`emp-btn emp-btn-pg ${page === i ? 'emp-btn-pg-active' : 'emp-btn-ghost'}`}
                   onClick={() => setPage(i)}
-                >
-                  {i + 1}
-                </button>
+                >{i + 1}</button>
               ))}
-              <button className="emp-pag-btn" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
+
+              <button
+                className="emp-btn emp-btn-ghost emp-btn-pg"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage(p => p + 1)}
+              >Next →</button>
             </div>
           </div>
         </div>
 
-        {/* ── Confirm Dialog (unchanged) ── */}
+        {/* ── Confirm Dialog — logic unchanged ── */}
         <ConfirmDialog
           open={terminateConfirm}
           title="Terminate Selected Employees"
