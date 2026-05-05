@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import { getVisibleEmployees } from '../utils/utils';
 import { getStatusColor, formatPKR } from '../services/api';
 import { Pencil, Trash2, UserX, Plus, ChevronDown, FileText, Download, Printer, Clock, TrendingUp } from 'lucide-react';
 import Modal from '../components/common/Modal';
@@ -31,7 +33,23 @@ export default function EmployeeDetail() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { employees, attendanceData, leaveRequests, payrollData, promotions, penalties, setPromotions, setPenalties } = useData();
-  const emp = employees.find(e => e.id === id) || employees[0];
+  const { user, activeRole } = useAuth();
+
+  const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
+
+  const emp = employees.find(e => e.id === id);
+
+  if (!emp || !visibleEmployees.some(ve => ve.id === emp.id)) {
+    return (
+      <div style={{ padding: '50px', textAlign: 'center', color: '#6b7280' }}>
+        <h2>Access Denied</h2>
+        <p>You do not have permission to view this employee's details.</p>
+        <button onClick={() => navigate('/employees')} style={{ marginTop: '20px', padding: '10px 20px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+          Back to Employees
+        </button>
+      </div>
+    );
+  }
   const [tab, setTab] = useState('personal');
   const [promoModal, setPromoModal] = useState(false);
   const [penaltyModal, setPenaltyModal] = useState(false);

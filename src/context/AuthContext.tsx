@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useData } from './DataContext';
 
 interface User {
   username: string;
   role: 'super_admin' | 'hr' | 'employee';
   employeeId?: string;
+  departments?: string[];
 }
 
 interface AuthContextType {
@@ -17,9 +19,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const ACCOUNTS: Record<string, { password: string; role: 'super_admin' | 'hr' | 'employee'; employeeId?: string }> = {
+const ACCOUNTS: Record<string, { password: string; role: 'super_admin' | 'hr' | 'employee'; employeeId?: string; departments?: string[] }> = {
   superadmin: { password: 'admin123', role: 'super_admin' },
-  hr1: { password: 'hr123', role: 'hr' },
+  hr1: { password: 'hr123', role: 'hr', departments: ['HR'] },
   emp001: { password: 'emp123', role: 'employee', employeeId: 'EMP001' },
 };
 
@@ -32,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('ems_user');
     return stored ? JSON.parse(stored).role : 'hr';
   });
+  const { hrAccounts } = useData();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,9 +42,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (username: string, password: string): boolean => {
-    const account = ACCOUNTS[username.toLowerCase()];
+    const lowerUser = username.toLowerCase();
+    const hrAccount = hrAccounts.find((a: any) => a.username.toLowerCase() === lowerUser && a.password === password && a.status === 'Active');
+    if (hrAccount) {
+      const employeeId = hrAccount.linkedEmployee?.split(' ')[0];
+      const u: User = {
+        username: hrAccount.username,
+        role: hrAccount.role as 'super_admin' | 'hr' | 'employee',
+        employeeId,
+        departments: hrAccount.departments || ['All'],
+      };
+      setUser(u);
+      setActiveRole(hrAccount.role as 'super_admin' | 'hr' | 'employee');
+      localStorage.setItem('ems_user', JSON.stringify(u));
+      localStorage.setItem('ems_token', 'dummy');
+      return true;
+    }
+
+    const account = ACCOUNTS[lowerUser];
     if (account && account.password === password) {
-      const u: User = { username, role: account.role, employeeId: account.employeeId };
+      const u: User = { username, role: account.role, employeeId: account.employeeId, departments: account.departments };
       setUser(u);
       setActiveRole(u.role);
       localStorage.setItem('ems_user', JSON.stringify(u));

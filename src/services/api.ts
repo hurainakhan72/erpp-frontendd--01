@@ -171,8 +171,9 @@ export const penaltiesConfig = [
 ];
 
 export const hrAccounts = [
-  { id: 'ACC001', username: 'superadmin', role: 'super_admin', linkedEmployee: '-', status: 'Active', created: '2020-01-01' },
-  { id: 'ACC002', username: 'hr1', role: 'hr', linkedEmployee: 'EMP003 - Usman Malik', status: 'Active', created: '2021-03-10' },
+  { id: 'ACC001', username: 'superadmin', role: 'super_admin', password: 'admin123', linkedEmployee: '-', departments: ['All'], status: 'Active', created: '2020-01-01' },
+  { id: 'ACC002', username: 'hr1', role: 'hr', password: 'hr123', linkedEmployee: 'EMP003 - Usman Malik', departments: ['HR'], status: 'Active', created: '2021-03-10' },
+  { id: 'ACC003', username: 'hr2', role: 'hr', password: 'hr123', linkedEmployee: 'EMP002 - Sara Khan', departments: ['Marketing'], status: 'Active', created: '2021-03-15' },
 ];
 
 export const customFields = {

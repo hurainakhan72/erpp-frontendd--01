@@ -79,24 +79,27 @@ export default function Sidebar() {
         ))}
       </div>
 
-      <div className="sb-div" />
-
-      <div className="sb-sec">
-        <button
-          className="collapsible-toggle"
-          onClick={() => setSettingsOpen(!settingsOpen)}
-          style={{ color: isSettingsActive ? '#90caf9' : 'var(--sb-lbl)' }}
-        >
-          {settingsOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-          Configuration
-        </button>
-        {settingsOpen && settingsLinks.map(link => (
-          <NavLink key={link.to} to={link.to} className={({ isActive }) => `nav-a ${isActive ? 'active' : ''}`}>
-            <Settings size={14} className="nav-ico" />
-            {link.label}
-          </NavLink>
-        ))}
-      </div>
+      {activeRole === 'super_admin' && (
+        <>
+          <div className="sb-div" />
+          <div className="sb-sec">
+            <button
+              className="collapsible-toggle"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              style={{ color: isSettingsActive ? '#90caf9' : 'var(--sb-lbl)' }}
+            >
+              {settingsOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+              Configuration
+            </button>
+            {settingsOpen && settingsLinks.map(link => (
+              <NavLink key={link.to} to={link.to} className={({ isActive }) => `nav-a ${isActive ? 'active' : ''}`}>
+                <Settings size={14} className="nav-ico" />
+                {link.label}
+              </NavLink>
+            ))}
+          </div>
+        </>
+      )}
 
       {activeRole === 'super_admin' && (
         <>

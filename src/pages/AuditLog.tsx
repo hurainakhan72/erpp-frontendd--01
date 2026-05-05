@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import { getVisibleEmployees } from '../utils/utils';
 import { getStatusColor } from '../services/api';
 import { Download } from 'lucide-react';
 
 const actionColors: Record<string, string> = { CREATE: 'pill-green', UPDATE: 'pill-blue', DELETE: 'pill-red', LOGIN: 'pill-steel', LOGOUT: 'pill-steel' };
 
 export default function AuditLog() {
-  const { auditLog } = useData();
+  const { auditLog, employees } = useData();
+  const { user, activeRole } = useAuth();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [userFilter, setUserFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -14,7 +17,12 @@ export default function AuditLog() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
+  const visibleEmpIds = useMemo(() => new Set(visibleEmployees.map(e => e.id)), [visibleEmployees]);
+
   const filtered = auditLog.filter((log: any) => {
+    // Filter by visible employees if module is Employee
+    if (log.module === 'Employee' && log.recordId && !visibleEmpIds.has(log.recordId)) return false;
     if (userFilter && log.user !== userFilter) return false;
     if (actionFilter && log.action !== actionFilter) return false;
     if (moduleFilter && log.module !== moduleFilter) return false;

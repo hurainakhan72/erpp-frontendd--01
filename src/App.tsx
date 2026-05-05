@@ -82,9 +82,9 @@ function RootRedirect() {
 }
 
 const App = () => (
-  <AuthProvider>
-    <ToastProvider>
-      <DataProvider>
+  <DataProvider>
+    <AuthProvider>
+      <ToastProvider>
         <BrowserRouter>
           <Routes>
             {/* Public Route */}
@@ -140,9 +140,9 @@ const App = () => (
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-      </DataProvider>
-    </ToastProvider>
-  </AuthProvider>
+      </ToastProvider>
+    </AuthProvider>
+  </DataProvider>
 );
 
 export default App;

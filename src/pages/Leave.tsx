@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { getStatusColor } from '../services/api';
+import { getVisibleEmployees } from '../utils/utils';
 import { Plus, Check, X, Pencil, RotateCcw, CalendarDays, Users } from 'lucide-react';
 import Modal from '../components/common/Modal';
 import DecisionBanner from '../components/common/DecisionBanner';
@@ -19,10 +21,13 @@ const getInitials = (name: string) => {
 
 export default function Leave() {
   const { leaveRequests: data, setLeaveRequests: setData, employees, leaveTypes } = useData();
+  const { user, activeRole } = useAuth();
   const [tab, setTab] = useState('all');
   const { showToast } = useToastContext();
+  const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
+  const visibleEmployeeIds = useMemo(() => new Set(visibleEmployees.map((e: any) => e.id)), [visibleEmployees]);
   const getEmployeeAvatar = (id: string) => {
-    const emp = employees.find((e: any) => e.id === id);
+    const emp = visibleEmployees.find((e: any) => e.id === id);
     return emp?.avatar || getInitials(emp?.name || '');
   };
   const [newModal, setNewModal] = useState(false);
@@ -44,14 +49,15 @@ export default function Leave() {
   const [calDeptFilter, setCalDeptFilter] = useState('');
 
   const counts = useMemo(() => ({
-    total: data.length,
-    pending: data.filter((l: any) => l.status === 'Pending').length,
-    approved: data.filter((l: any) => l.status === 'Approved').length,
-    rejected: data.filter((l: any) => l.status === 'Rejected').length,
+    total: data.filter((l: any) => visibleEmployeeIds.has(l.empId)).length,
+    pending: data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.status === 'Pending').length,
+    approved: data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.status === 'Approved').length,
+    rejected: data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.status === 'Rejected').length,
     onLeaveToday: 2,
-  }), [data]);
+  }), [data, visibleEmployeeIds]);
 
-  const filtered = tab === 'all' ? data : tab === 'calendar' ? data : tab === 'balances' ? data : data.filter((l: any) => l.status.toLowerCase() === tab);
+  const visibleData = data.filter((l: any) => visibleEmployeeIds.has(l.empId));
+  const filtered = tab === 'all' ? visibleData : tab === 'calendar' ? visibleData : tab === 'balances' ? visibleData : visibleData.filter((l: any) => l.status.toLowerCase() === tab);
 
   function handleApprove(id: string) { setData(prev => prev.map((l: any) => l.id === id ? { ...l, status: 'Approved' } : l)); showToast('Leave approved'); }
   function handleReject(id: string) {
@@ -90,8 +96,8 @@ export default function Leave() {
   const earlyRestore = earlyOrigDays - earlyActual;
 
   // Leave balance overview
-  const empBalances = employees.map((e: any) => {
-    const empLeaves = data.filter((l: any) => l.empId === e.id && l.status === 'Approved');
+  const empBalances = visibleEmployees.map((e: any) => {
+    const empLeaves = data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.empId === e.id && l.status === 'Approved');
     const annual = empLeaves.filter((l: any) => l.leaveType === 'Annual').reduce((s: number, l: any) => s + l.days, 0);
     const casual = empLeaves.filter((l: any) => l.leaveType === 'Casual').reduce((s: number, l: any) => s + l.days, 0);
     const medical = empLeaves.filter((l: any) => l.leaveType.includes('Medical') || l.leaveType.includes('Sick')).reduce((s: number, l: any) => s + l.days, 0);
@@ -99,7 +105,7 @@ export default function Leave() {
   });
 
   // Calendar data
-  const approvedLeaves = data.filter((l: any) => l.status === 'Approved' && (!calDeptFilter || employees.find((e: any) => e.id === l.empId)?.department === calDeptFilter));
+  const approvedLeaves = visibleData.filter((l: any) => l.status === 'Approved' && (!calDeptFilter || visibleEmployees.find((e: any) => e.id === l.empId)?.department === calDeptFilter));
   const calDays = Array.from({ length: 31 }, (_, i) => i + 1);
   const leaveColors: Record<string, string> = { Annual: 'var(--pl)', Casual: 'var(--greenl)', Sick: 'var(--redl)', Medical: 'var(--redl)' };
 
@@ -234,7 +240,7 @@ export default function Leave() {
       </Modal>
 
       <Modal open={newModal} onClose={() => setNewModal(false)} title="New Leave Request" footer={<><button className="btn btn-secondary" onClick={() => setNewModal(false)}>Cancel</button><button className="btn btn-primary" onClick={submitNew} disabled={saving}>{saving ? 'Submitting...' : 'Submit Request'}</button></>}>
-        <div className="form-group"><label className="form-label">Employee *</label><select className="input select-input" value={newEmp} onChange={e => setNewEmp(e.target.value)}><option value="">Select employee...</option>{employees.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}</select></div>
+        <div className="form-group"><label className="form-label">Employee *</label><select className="input select-input" value={newEmp} onChange={e => setNewEmp(e.target.value)}><option value="">Select employee...</option>{visibleEmployees.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}</select></div>
         <div className="form-group"><label className="form-label">Leave Type</label><select className="input select-input" value={newType} onChange={e => setNewType(e.target.value)}>{leaveTypes.filter((t: any) => t.active).map((t: any) => <option key={t.code} value={t.name.replace(' Leave', '')}>{t.name}</option>)}</select></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="form-group"><label className="form-label">From Date *</label><input className="input" type="date" value={newFrom} onChange={e => setNewFrom(e.target.value)} /></div>

@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import { getVisibleEmployees } from '../utils/utils';
 import { getStatusColor } from '../services/api';
 import { Plus, Search, Eye, Pencil, ChevronUp, ChevronDown, ArrowUpDown, UserX } from 'lucide-react';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -102,6 +104,7 @@ export default function Employees() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { employees, setEmployees, departments, jobStatuses, workModes } = useData();
+  const { user, activeRole } = useAuth();
   const [search,           setSearch]           = useState('');
   const [deptFilter,       setDeptFilter]       = useState('');
   const [statusFilter,     setStatusFilter]     = useState('');
@@ -115,8 +118,10 @@ export default function Employees() {
   const [perPage,          setPerPage]          = useState(25);
 
   // ── All original logic unchanged ──────────────────────────────────────────
+  const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
+
   const filtered = useMemo(() => {
-    let list = employees.filter(e => {
+    let list = visibleEmployees.filter(e => {
       if (!showTerminated && e.jobStatus === 'Terminated') return false;
       if (search && !e.name.toLowerCase().includes(search.toLowerCase()) && !e.id.toLowerCase().includes(search.toLowerCase())) return false;
       if (deptFilter && e.department !== deptFilter) return false;
@@ -165,7 +170,7 @@ export default function Employees() {
       : <ChevronDown size={10} style={{ marginLeft: 3, color: '#6366f1' }} />;
   };
 
-  const activeCount = employees.filter(e => e.jobStatus !== 'Terminated').length;
+  const activeCount = visibleEmployees.filter(e => e.jobStatus !== 'Terminated').length;
   const hasFilters  = search || deptFilter || statusFilter || modeFilter;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -187,6 +192,12 @@ export default function Employees() {
             <Plus size={13} /> Add Employee
           </button>
         </div>
+
+        {activeRole === 'hr' && user?.departments && !user.departments.includes('All') && (
+          <div style={{ marginBottom: 12, fontSize: 12, color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px' }}>
+            Showing only assigned department(s): <strong>{user.departments.join(', ')}</strong>.
+          </div>
+        )}
 
         {/* ── Filters + Search — same card as table ── */}
         <div className="emp-card" style={{ marginBottom:12 }}>

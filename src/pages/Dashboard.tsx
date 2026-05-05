@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { getVisibleEmployees } from "../utils/utils";
 import { useNavigate } from "react-router-dom";
 import {
   Users, UserCheck, CalendarDays, AlertTriangle,
@@ -111,7 +112,7 @@ const SHead = ({ icon, title, right }: { icon:React.ReactNode; title:string; rig
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Dashboard() {
-  const { user }                                = useAuth();
+  const { user, activeRole }                    = useAuth();
   const { leaveRequests, employees, globalDays } = useData();
   const navigate                                = useNavigate();
 
@@ -127,14 +128,29 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, []);
 
+  const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
+
+  const deptData = useMemo(() => {
+    const deptCounts: Record<string, number> = {};
+    visibleEmployees.forEach(emp => {
+      deptCounts[emp.department] = (deptCounts[emp.department] || 0) + 1;
+    });
+    return Object.entries(deptCounts).map(([name, value], i) => ({
+      name,
+      value,
+      color: AV_COLORS[i % AV_COLORS.length]
+    }));
+  }, [visibleEmployees]);
+
   // ── Real data ──
-  const totalEmp  = employees?.length ?? 0;
-  const activeEmp = employees?.filter((e:any) => e.status === "active").length ?? 0;
-  const pendingLv = leaveRequests?.filter((l:any) => l.status === "Pending").length ?? 0;
+  const totalEmp  = visibleEmployees?.length ?? 0;
+  const activeEmp = visibleEmployees?.filter((e:any) => e.status === "active").length ?? 0;
+  const visibleEmployeeIds = new Set(visibleEmployees.map((e:any) => e.id));
+  const pendingLv = leaveRequests?.filter((l:any) => visibleEmployeeIds.has(l.empId) && l.status === "Pending").length ?? 0;
 
   const todayISO = now.toISOString().split("T")[0];
   const onLeave  = leaveRequests?.filter((l:any) =>
-    l.status==="Approved" && l.start_date<=todayISO && l.end_date>=todayISO
+    visibleEmployeeIds.has(l.empId) && l.status==="Approved" && l.start_date<=todayISO && l.end_date>=todayISO
   ).length ?? 0;
 
   const attendPct = totalEmp > 0 ? Math.round((activeEmp/totalEmp)*100) : 88;
@@ -446,8 +462,8 @@ export default function Dashboard() {
               <div style={{position:"relative",width:140,height:140,flexShrink:0}}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={DEPT_DATA} cx="50%" cy="50%" innerRadius={40} outerRadius={58} dataKey="value" stroke="none">
-                      {DEPT_DATA.map((d,i)=><Cell key={i} fill={d.color}/>)}
+                    <Pie data={deptData} cx="50%" cy="50%" innerRadius={40} outerRadius={58} dataKey="value" stroke="none">
+                      {deptData.map((d,i)=><Cell key={i} fill={d.color}/>)}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
@@ -457,7 +473,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div style={{flex:1}}>
-                {DEPT_DATA.map((d,i)=>(
+                {deptData.map((d,i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:7,padding:"4px 0",fontSize:11,borderBottom:"1px solid #f8fafc"}}>
                     <div style={{width:8,height:8,borderRadius:"50%",background:d.color,flexShrink:0}}/>
                     <span style={{flex:1,color:"#374151"}}>{d.name}</span>

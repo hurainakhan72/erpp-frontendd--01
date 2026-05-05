@@ -1,5 +1,8 @@
 // pages/Attendance.tsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
+import { getVisibleEmployees } from '../utils/utils';
 
 type ShiftType = 'Morning' | 'Evening' | 'Night';
 type EmployeeStatus = 'Present' | 'Late' | 'Absent' | 'On Leave';
@@ -115,6 +118,9 @@ const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'Jul
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const Attendance = () => {
+  const { user, activeRole } = useAuth();
+  const { employees: globalEmployees } = useData();
+
   const [data, setData] = useState<Employee[]>(employees);
   const [roster, setRoster] = useState<RosterStaff[]>(initialRoster);
   const [activeFilter, setActiveFilter] = useState<string>('All');
@@ -132,14 +138,24 @@ const Attendance = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const visibleData = useMemo(() => {
+    if (activeRole !== 'hr' || !user?.departments || user.departments.includes('All')) return data;
+    return data.filter(emp => user.departments.includes(emp.department));
+  }, [data, activeRole, user]);
+
+  const visibleRoster = useMemo(() => {
+    const visibleFirstNames = new Set(visibleData.map(e => e.name.split(' ')[0]));
+    return roster.filter(r => visibleFirstNames.has(r.name));
+  }, [roster, visibleData]);
+
   const stats = {
-    present: data.filter(e => e.status === 'Present').length,
-    late: data.filter(e => e.status === 'Late').length,
-    absent: data.filter(e => e.status === 'Absent').length,
-    onLeave: data.filter(e => e.status === 'On Leave').length,
+    present: visibleData.filter(e => e.status === 'Present').length,
+    late: visibleData.filter(e => e.status === 'Late').length,
+    absent: visibleData.filter(e => e.status === 'Absent').length,
+    onLeave: visibleData.filter(e => e.status === 'On Leave').length,
   };
 
-  const filteredData = data.filter(emp => {
+  const filteredData = visibleData.filter(emp => {
     const matchesFilter = activeFilter === 'All' || emp.status === activeFilter;
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -609,7 +625,7 @@ const Attendance = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {roster.map((staff, idx) => (
+                  {visibleRoster.map((staff, idx) => (
                     <tr key={idx}>
                       <td style={{ ...styles.rosterTd, fontWeight: '600' }}>{staff.name}</td>
                       {['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map(day => {
