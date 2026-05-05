@@ -24,6 +24,10 @@ import {
   customFields as defaultCustomFields,
   taxConfig as defaultTaxConfig,
   globalDays as defaultGlobalDays,
+  dutyRosterData as defaultDutyRosterData,
+  dutyRosterTemplates as defaultDutyRosterTemplates,
+  DutyRoster,
+  DutyRosterTemplate,
 } from '../services/api';
 
 function load<T>(key: string, fallback: T): T {
@@ -86,6 +90,11 @@ interface DataContextType {
   setTaxConfig: (fn: (prev: typeof defaultTaxConfig) => typeof defaultTaxConfig) => void;
   globalDays: typeof defaultGlobalDays;
   setGlobalDays: (fn: (prev: typeof defaultGlobalDays) => typeof defaultGlobalDays) => void;
+  dutyRosterData: DutyRoster[];
+  setDutyRosterData: (fn: (prev: DutyRoster[]) => DutyRoster[]) => void;
+  dutyRosterTemplates: DutyRosterTemplate[];
+  setDutyRosterTemplates: (fn: (prev: DutyRosterTemplate[]) => DutyRosterTemplate[]) => void;
+  resetAllData: () => void;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -126,6 +135,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [customFields, setCustomFields] = usePersisted('customFields', defaultCustomFields);
   const [taxConfig, setTaxConfig] = usePersisted('taxConfig', defaultTaxConfig);
   const [globalDays, setGlobalDays] = usePersisted('globalDays', defaultGlobalDays);
+  const [dutyRosterData, setDutyRosterData] = usePersisted('dutyRosterData', defaultDutyRosterData);
+  const [dutyRosterTemplates, setDutyRosterTemplates] = usePersisted('dutyRosterTemplates', defaultDutyRosterTemplates);
 
   const addEmployee = useCallback((emp: Employee) => {
     setEmployees(prev => [...prev, emp]);
@@ -134,6 +145,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteEmployee = useCallback((id: string) => {
     setEmployees(prev => prev.filter(e => e.id !== id));
   }, [setEmployees]);
+
+  const resetAllData = useCallback(() => {
+    setEmployees(() => defaultEmployees);
+    setLeaveRequests(() => defaultLeaveReqs);
+    setPayrollData(() => defaultPayroll);
+    setPromotions(() => defaultPromotions);
+    setPenalties(() => defaultPenalties);
+    setAuditLog(() => defaultAuditLog);
+    setHrAccounts(() => defaultHrAccounts);
+    setAttendanceData(() => defaultAttendance);
+    setDepartments(() => defaultDepts);
+    setDesignations(() => defaultDesigs);
+    setWorkModes(() => defaultWorkModes);
+    setWorkLocations(() => defaultWorkLocs);
+    setEmploymentTypes(() => defaultEmpTypes);
+    setJobStatuses(() => defaultJobStatuses);
+    setReportingManagers(() => defaultReportingMgrs);
+    setShifts(() => defaultShifts);
+    setLeaveTypes(() => defaultLeaveTypes);
+    setLeavePolicies(() => defaultLeavePolicies);
+    setPayrollComponents(() => defaultPayrollComps);
+    setPenaltiesConfig(() => defaultPenaltiesConfig);
+    setCustomFields(() => defaultCustomFields);
+    setTaxConfig(() => defaultTaxConfig);
+    setGlobalDays(() => defaultGlobalDays);
+    setDutyRosterData(() => defaultDutyRosterData);
+    setDutyRosterTemplates(() => defaultDutyRosterTemplates);
+  }, []);
 
   return (
     <DataContext.Provider value={{
@@ -160,6 +199,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       customFields, setCustomFields,
       taxConfig, setTaxConfig,
       globalDays, setGlobalDays,
+      dutyRosterData, setDutyRosterData,
+      dutyRosterTemplates, setDutyRosterTemplates,
+      resetAllData,
     }}>
       {children}
     </DataContext.Provider>

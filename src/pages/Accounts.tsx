@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { Plus, ShieldCheck, ShieldOff, Users, UserCheck, UserX, KeyRound } from 'lucide-react';
 import Modal from '../components/common/Modal';
 import { useToastContext } from '../context/ToastContext';
@@ -200,29 +201,45 @@ const pwStrength = (pw: string) => {
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Accounts() {
   const { hrAccounts, setHrAccounts, employees } = useData();
+  const { user, activeRole } = useAuth();
   const [modal,     setModal]     = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [username,  setUsername]  = useState('');
   const [password,  setPassword]  = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [linkedEmp, setLinkedEmp] = useState('');
+  const [departments, setDepartments] = useState<string[]>([]);
   const { showToast } = useToastContext();
+
+  // Department filtering logic
+  const userDepartments = (activeRole === 'hr' && user?.departments && user.departments.length > 0 && !user.departments.includes('All'))
+    ? user.departments
+    : [];
+
+  const visibleHrAccounts = userDepartments.length > 0
+    ? hrAccounts.filter(account => {
+        if (account.role === 'super_admin') return true; // Always show super admin
+        return account.departments?.some(dept => userDepartments.includes(dept)) || false;
+      })
+    : hrAccounts;
 
   // ── Logic untouched ───────────────────────────────────────────────────────
   const handleAdd = () => {
     if (!username || !password) { showToast('Username and password required', 'error'); return; }
     if (password !== confirmPw)  { showToast('Passwords do not match', 'error'); return; }
+    if (departments.length === 0) { showToast('At least one department required', 'error'); return; }
     setSaving(true);
     setTimeout(() => {
       setHrAccounts((prev: any) => [...prev, {
         id: 'ACC' + String(prev.length + 1).padStart(3, '0'),
         username, role: 'hr',
         linkedEmployee: linkedEmp || '-',
+        departments: departments,
         status: 'Active',
         created: new Date().toISOString().split('T')[0],
       }]);
       setSaving(false); setModal(false); showToast('Account created');
-      setUsername(''); setPassword(''); setConfirmPw(''); setLinkedEmp('');
+      setUsername(''); setPassword(''); setConfirmPw(''); setLinkedEmp(''); setDepartments([]); setDepartments([]);
     }, 500);
   };
 
@@ -234,10 +251,10 @@ export default function Accounts() {
   };
 
   // ── Derived stats ─────────────────────────────────────────────────────────
-  const total    = hrAccounts.length;
-  const active   = hrAccounts.filter((a: any) => a.status === 'Active').length;
-  const inactive = hrAccounts.filter((a: any) => a.status === 'Inactive').length;
-  const linked   = hrAccounts.filter((a: any) => a.linkedEmployee && a.linkedEmployee !== '-').length;
+  const total    = visibleHrAccounts.length;
+  const active   = visibleHrAccounts.filter((a: any) => a.status === 'Active').length;
+  const inactive = visibleHrAccounts.filter((a: any) => a.status === 'Inactive').length;
+  const linked   = visibleHrAccounts.filter((a: any) => a.linkedEmployee && a.linkedEmployee !== '-').length;
 
   const pw = pwStrength(password);
   const pwMatch = confirmPw.length > 0 ? password === confirmPw : null;
@@ -290,6 +307,7 @@ export default function Accounts() {
                   <th>User</th>
                   <th>Account ID</th>
                   <th>Role</th>
+                  <th>Department</th>
                   <th>Linked Employee</th>
                   <th>Status</th>
                   <th>Created</th>
@@ -297,9 +315,9 @@ export default function Accounts() {
                 </tr>
               </thead>
               <tbody>
-                {hrAccounts.length === 0 ? (
+                {visibleHrAccounts.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="acc-empty">
                         <div style={{ fontSize:28, marginBottom:8 }}>🔐</div>
                         <div style={{ fontSize:13, fontWeight:700, color:'#374151', marginBottom:4 }}>No accounts yet</div>
@@ -307,7 +325,7 @@ export default function Accounts() {
                       </div>
                     </td>
                   </tr>
-                ) : hrAccounts.map((a: any) => {
+                ) : visibleHrAccounts.map((a: any) => {
                   const isSuper = a.role === 'super_admin';
                   return (
                     <tr key={a.id}>
@@ -342,6 +360,25 @@ export default function Accounts() {
                           ? <span className="acc-pill acc-pill-super">★ Super Admin</span>
                           : <span className="acc-pill acc-pill-hr">⚙ HR</span>
                         }
+                      </td>
+
+                      {/* Department */}
+                      <td>
+                        {isSuper ? (
+                          <span className="acc-pill acc-pill-super">All Departments</span>
+                        ) : (
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                            {a.departments?.map((dept: string, idx: number) => (
+                              <span key={idx} style={{
+                                fontSize:10, fontWeight:600, color:'#374151',
+                                background:'#f3f4f6', padding:'2px 6px', borderRadius:6,
+                                whiteSpace:'nowrap'
+                              }}>
+                                {dept}
+                              </span>
+                            )) || <span style={{ fontSize:11, color:'#9ca3af', fontStyle:'italic' }}>— none</span>}
+                          </div>
+                        )}
                       </td>
 
                       {/* Linked employee */}
@@ -396,7 +433,14 @@ export default function Accounts() {
         {/* ══ Add Account Modal ═══════════════════════════════════════════════ */}
         <Modal
           open={modal}
-          onClose={() => setModal(false)}
+          onClose={() => {
+            setModal(false);
+            setUsername('');
+            setPassword('');
+            setConfirmPw('');
+            setLinkedEmp('');
+            setDepartments([]);
+          }}
           title="Add HR Account"
           footer={
             <>
@@ -469,6 +513,30 @@ export default function Accounts() {
                 <option key={e.id} value={`${e.id} - ${e.name}`}>{e.id} — {e.name}</option>
               ))}
             </select>
+          </div>
+
+          <div className="acc-form-group">
+            <label className="acc-form-label">Departments <span style={{color:'#ef4444'}}>*</span></label>
+            <div style={{display:'flex', flexWrap:'wrap', gap:6, padding:'8px', border:'1px solid #e5e7eb', borderRadius:9, background:'#fff'}}>
+              {['Engineering', 'Marketing', 'HR', 'Sales', 'Finance'].map(dept => (
+                <label key={dept} style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer', fontSize:12}}>
+                  <input
+                    type="checkbox"
+                    checked={departments.includes(dept)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setDepartments(prev => [...prev, dept]);
+                      } else {
+                        setDepartments(prev => prev.filter(d => d !== dept));
+                      }
+                    }}
+                    style={{width:14, height:14, accentColor:'#6366f1'}}
+                  />
+                  {dept}
+                </label>
+              ))}
+            </div>
+            {departments.length === 0 && <div style={{fontSize:10, color:'#ef4444', marginTop:4}}>Please select at least one department</div>}
           </div>
 
           <div className="acc-form-group">

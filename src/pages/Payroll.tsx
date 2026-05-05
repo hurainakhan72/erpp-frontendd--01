@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 /* ═══════════ TYPES ═══════════ */
 interface Employee {
@@ -23,20 +24,6 @@ const MONTHS = ["","January","February","March","April","May","June",
   "July","August","September","October","November","December"];
 
 const DEPARTMENTS = ["All Departments","Engineering","Human Resources","Sales","Finance","Operations"];
-
-/*
-  HR ROLE SIMULATION
-  ------------------
-  Set CURRENT_USER_DEPT to a department string to simulate an HR user
-  who can only see their own department's payroll.
-  Leave empty ("") for admin view — sees all departments.
-
-  Examples:
-    const CURRENT_USER_DEPT = "Engineering";
-    const CURRENT_USER_DEPT = "Human Resources";
-    const CURRENT_USER_DEPT = "";   ← admin
-*/
-const CURRENT_USER_DEPT = "";
 
 const monthDays = (m: number, y: number) => {
   if (m === 2) return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0) ? 29 : 28;
@@ -104,6 +91,13 @@ function Toast({ msg, show }: { msg: string; show: boolean }) {
 /* ═══════════ MAIN COMPONENT ═══════════ */
 export default function Payroll() {
   const now = new Date();
+  const { user, activeRole } = useAuth();
+  
+  // Get user's departments or empty array for super admin
+  const userDepartments = (activeRole === 'hr' && user?.departments && user.departments.length > 0 && !user.departments.includes('All')) 
+    ? user.departments 
+    : [];
+  
   const [records,  setRecords]  = useState<PayRecord[]>([]);
   const [fMonth,   setFMonth]   = useState(now.getMonth()+1);
   const [fYear,    setFYear]    = useState(now.getFullYear());
@@ -160,9 +154,9 @@ export default function Payroll() {
   useEffect(()=>{ loadEmp(gEmp); }, [gEmp]);
   useEffect(()=>{ setGPaid(monthDays(gMonth,gYear)); }, [gMonth,gYear]);
 
-  // Employees visible to current HR user
-  const allowedEmps = CURRENT_USER_DEPT
-    ? EMPLOYEES.filter(e=>e.department===CURRENT_USER_DEPT)
+  // Employees visible to current HR user - filter by their departments
+  const allowedEmps = userDepartments.length > 0
+    ? EMPLOYEES.filter(e => userDepartments.includes(e.department))
     : EMPLOYEES;
 
   function openGen() {
@@ -212,8 +206,8 @@ export default function Payroll() {
   /* ── Department-scoped filtering ──
      HR user: sees only their dept.
      Admin:   sees all, with optional fDept filter. */
-  const baseRecords = CURRENT_USER_DEPT
-    ? records.filter(r=>r.dept===CURRENT_USER_DEPT)
+  const baseRecords = userDepartments.length > 0
+    ? records.filter(r => userDepartments.includes(r.dept))
     : records;
 
   const allMonth = baseRecords.filter(r=>r.month===fMonth&&r.year===fYear);
@@ -377,9 +371,9 @@ export default function Payroll() {
             <div style={{fontSize:12,color:"#9ca3af",marginTop:4}}>
               Manage salaries &amp; payslips &nbsp;·&nbsp;
               <span style={{color:"#f97316",fontWeight:600}}>{MONTHS[fMonth]} {fYear}</span>
-              {CURRENT_USER_DEPT && (
+              {userDepartments.length > 0 && (
                 <span style={{marginLeft:8,background:"#eff6ff",color:"#3b82f6",padding:"2px 8px",borderRadius:6,fontWeight:600,fontSize:11}}>
-                  {CURRENT_USER_DEPT} HR View
+                  {userDepartments.join(", ")} HR View
                 </span>
               )}
             </div>
@@ -446,8 +440,8 @@ export default function Payroll() {
             <option value="Finalized">Finalized</option>
           </select>
 
-          {/* Department filter — shown only to admin */}
-          {!CURRENT_USER_DEPT && (
+          {/* Department filter — shown only to admin (super_admin) */}
+          {userDepartments.length === 0 && (
             <select value={fDept} onChange={e=>setFDept(e.target.value)} style={selStyle}>
               {DEPARTMENTS.map(d=>(
                 <option key={d} value={d==="All Departments"?"":d}>{d}</option>

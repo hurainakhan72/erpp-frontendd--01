@@ -30,6 +30,7 @@ export default function Sidebar() {
     { to: '/leave', icon: CalendarDays, label: 'Leave', badge: '3' },
     { to: '/payroll', icon: DollarSign, label: 'Payroll' },
     { to: '/promotions', icon: TrendingUp, label: 'Promotions' },
+    { to: '/duty-roster', icon: Clock, label: 'Duty Roster' },
   ];
 
   const settingsLinks = [

@@ -20,6 +20,7 @@ import Payroll from "./pages/Payroll";
 import Promotions from "./pages/Promotions";
 import Accounts from "./pages/Accounts";
 import AuditLog from "./pages/AuditLog";
+import DutyRoster from "./pages/DutyRoster";
 
 // Employee Specific Pages
 import MyDashboard from "./pages/MyDashboard";
@@ -103,6 +104,7 @@ const App = () => (
                 <Route path="/payroll" element={<Payroll />} />
                 <Route path="/promotions" element={<Promotions />} />
                 <Route path="/accounts" element={<Accounts />} />
+                <Route path="/duty-roster" element={<DutyRoster />} />
                 <Route path="/audit-log" element={<AuditLog />} />
                 
                 {/* Settings Nested Routes */}
