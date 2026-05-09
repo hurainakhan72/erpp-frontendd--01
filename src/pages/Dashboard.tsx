@@ -146,7 +146,56 @@ export default function Dashboard() {
   const totalEmp  = visibleEmployees?.length ?? 0;
   const activeEmp = visibleEmployees?.filter((e:any) => e.status === "active").length ?? 0;
   const visibleEmployeeIds = new Set(visibleEmployees.map((e:any) => e.id));
-  const pendingLv = leaveRequests?.filter((l:any) => visibleEmployeeIds.has(l.empId) && l.status === "Pending").length ?? 0;
+  const visibleLeaveRequests = useMemo(
+    () => leaveRequests?.filter((l:any) => visibleEmployeeIds.has(l.empId)) || [],
+    [leaveRequests, visibleEmployeeIds],
+  );
+
+  const pendingLv = visibleLeaveRequests.filter((l:any) => l.status === "Pending").length;
+
+  const attendanceChartData = useMemo(() => {
+    const base = Math.max(totalEmp, 8);
+    return MONTH_NAMES.slice(-6).map((month, idx) => {
+      const present = Math.max(base - Math.round(base * 0.1) - (idx % 2), 1);
+      const absent = Math.max(base - present, 0);
+      return { month: month.slice(0,3), present, absent };
+    });
+  }, [totalEmp]);
+
+  const growthData = useMemo(() => {
+    const base = Math.max(totalEmp, 24);
+    return MONTH_NAMES.slice(-6).map((month, idx) => ({
+      month: month.slice(0,3),
+      count: Math.max(1, base - 2 + idx),
+    }));
+  }, [totalEmp]);
+
+  const leaveData = useMemo(() => {
+    const totals: Record<string, number> = {
+      Annual: 120,
+      Casual: 80,
+      Sick: 60,
+      Maternity: 30,
+    };
+    const colors: Record<string, string> = {
+      Annual: '#6366f1',
+      Casual: '#f97316',
+      Sick: '#ef4444',
+      Maternity: '#ec4899',
+    };
+
+    const summary: Record<string, number> = {};
+    visibleLeaveRequests.forEach((l:any) => {
+      summary[l.leaveType] = (summary[l.leaveType] || 0) + l.days;
+    });
+
+    return Object.keys(totals).map((type) => ({
+      type,
+      used: summary[type] || 0,
+      total: totals[type],
+      color: colors[type],
+    }));
+  }, [visibleLeaveRequests]);
 
   const todayISO = now.toISOString().split("T")[0];
   const onLeave  = leaveRequests?.filter((l:any) =>
@@ -248,20 +297,21 @@ export default function Dashboard() {
       {name:"Hina Malik",  dept:"HR",          score:92,ini:"HM",color:"#ec4899"},
       {name:"Bilal Ahmed", dept:"Marketing",   score:90,ini:"BA",color:"#14b8a6"},
     ];
-    if (!employees?.length) return fallback;
-    return employees.slice(0,4).map((e:any,i:number) => ({
+    const source = visibleEmployees?.length ? visibleEmployees : employees;
+    if (!source?.length) return fallback;
+    return source.slice(0,4).map((e:any,i:number) => ({
       name:  e.name || "—",
       dept:  e.department || "—",
       score: 88 + Math.floor((i*3.5)%11),
       ini:   (e.name||"?").split(" ").map((n:string)=>n[0]).join("").slice(0,2).toUpperCase(),
       color: AV_COLORS[i % AV_COLORS.length],
     }));
-  },[employees]);
+  },[visibleEmployees, employees]);
 
   // ── Calendar events ──
   const calEvts = useMemo(() => {
     const map: Record<number,{type:string}[]> = {};
-    employees?.forEach((emp:any) => {
+    visibleEmployees?.forEach((emp:any) => {
       if (!emp.dob) return;
       const d = new Date(emp.dob);
       if (d.getMonth()===calMonth) {
@@ -286,7 +336,7 @@ export default function Dashboard() {
   const birthdays = useMemo(() => {
     const today = new Date(); today.setHours(0,0,0,0);
     const list: {name:string;dept:string;date:Date;daysUntil:number;ini:string;color:string}[] = [];
-    employees?.forEach((emp:any,idx:number) => {
+    visibleEmployees?.forEach((emp:any,idx:number) => {
       if (!emp.dob) return;
       const dob = new Date(emp.dob);
       let bday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
@@ -313,7 +363,7 @@ export default function Dashboard() {
   return (
     <>
       <style>{G}</style>
-      <div className="pg" style={{padding:"22px 28px",background:"#f0f2f8",minHeight:"100vh"}}>
+      <div className="pg" style={{padding:"22px 28px",background:"#fff",minHeight:"100vh"}}>
 
         {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}}>
@@ -444,7 +494,7 @@ export default function Dashboard() {
             />
             <p style={{margin:"-10px 0 10px",fontSize:10,color:"#9ca3af"}}>Present vs Absent · Last 6 months</p>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={ATTEND_DATA} barGap={3}>
+              <BarChart data={attendanceChartData} barGap={3}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
                 <XAxis dataKey="month" tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
                 <YAxis tick={{fontSize:9,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
@@ -496,7 +546,7 @@ export default function Dashboard() {
               right={<span style={{fontSize:12,fontWeight:800,color:"#10b981"}}>260 ↑</span>}
             />
             <ResponsiveContainer width="100%" height={185}>
-              <AreaChart data={GROWTH_DATA}>
+              <AreaChart data={growthData}>
                 <defs>
                   <linearGradient id="gr1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="#a855f7" stopOpacity={0.18}/>
@@ -522,7 +572,7 @@ export default function Dashboard() {
               <div style={{position:"relative",width:130,height:130,flexShrink:0}}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={LEAVE_DATA} cx="50%" cy="50%" innerRadius={35} outerRadius={53} dataKey="used" stroke="none">
+                    <Pie data={leaveData} cx="50%" cy="50%" innerRadius={35} outerRadius={53} dataKey="used" stroke="none">
                       {LEAVE_DATA.map((d,i)=><Cell key={i} fill={d.color}/>)}
                     </Pie>
                   </PieChart>

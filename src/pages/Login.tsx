@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, Zap } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import logo from '../images/logo.png';
+
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -12,9 +14,11 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+
   if (user) {
     return <Navigate to={user.role === 'employee' ? '/my-dashboard' : '/dashboard'} />;
   }
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,11 +36,17 @@ export default function Login() {
     }, 500);
   };
 
+
   return (
     <div className="login-page">
       <div className="login-card">
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          <div className="sb-mark" style={{ width: 48, height: 48 }}><Zap size={22} /></div>
+        <div className="login-brand">
+          <img
+            src={logo}
+            alt="ESSPL Logo"
+            className="login-logo"
+            style={{ width: 170, height: 'auto', display: 'block', margin: '0 auto 8px' }}
+          />
         </div>
         <div className="login-title">Employee Management System</div>
         <div className="login-sub">Sign in to your account</div>
@@ -59,8 +69,8 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <div style={{ marginTop: 20, padding: 12, background: 'var(--inp)', borderRadius: 'var(--rsm)', fontSize: 11, color: 'var(--t3)' }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--t2)' }}>Demo Accounts:</div>
+        <div className="login-note">
+          <strong>Demo Accounts:</strong>
           <div className="mono" style={{ fontSize: 10.5 }}>superadmin / admin123 → Super Admin</div>
           <div className="mono" style={{ fontSize: 10.5 }}>hr1 / hr123 → HR</div>
           <div className="mono" style={{ fontSize: 10.5 }}>emp001 / emp123 → Employee</div>
@@ -69,13 +79,3 @@ export default function Login() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
