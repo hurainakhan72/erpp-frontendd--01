@@ -1,351 +1,405 @@
-import React, { useState, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { getStatusColor } from '../services/api';
-import { getVisibleEmployees } from '../utils/utils';
-import { Plus, Check, X, Pencil, RotateCcw, CalendarDays, Users, Clock, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { formatPKR } from '../services/api';
+import { Plus, Calendar as CalendarIcon, Filter, TrendingUp, Award, Users, DollarSign, ChevronUp } from 'lucide-react';
 import Modal from '../components/common/Modal';
-import DecisionBanner from '../components/common/DecisionBanner';
 import { useToastContext } from '../context/ToastContext';
 
-// ─── Stat card CSS (same pattern as Promotions) ───────────────────────────────
-const STAT_CSS = `
-  @keyframes lv-fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-  .lv-stat-card {
-    border-radius:14px; padding:16px 18px; color:#fff;
-    position:relative; overflow:hidden;
-    animation: lv-fadeUp .35s ease both;
+// ─── Global CSS ───────────────────────────────────────────────────────────────
+const CSS = `
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .pr-page { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; padding:22px 28px; background:#f0f2f8; min-height:100vh; }
+  .pr-card { background:#fff; border-radius:16px; padding:20px; box-shadow:0 1px 10px rgba(0,0,0,.07); animation:fadeUp .35s ease both; }
+  .pr-input {
+    height:38px; border:1.5px solid #e5e7eb; border-radius:10px; padding:0 12px;
+    font-size:12px; color:#374151; background:#fff; outline:none;
+    transition:border .15s,box-shadow .15s; font-family:inherit; width:100%;
   }
-  .lv-stat-card::after {
-    content:''; position:absolute; width:70px; height:70px;
-    border-radius:50%; background:rgba(255,255,255,.08);
-    bottom:-15px; right:-15px;
+  .pr-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+  .pr-input:disabled { background:#f8fafc; color:#9ca3af; cursor:not-allowed; }
+  .pr-textarea { resize:vertical; height:80px; padding:10px 12px; line-height:1.5; }
+  .pr-select { cursor:pointer; }
+  .pr-btn {
+    height:38px; border:none; border-radius:10px; padding:0 18px; font-size:12px;
+    font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    transition:opacity .15s,transform .15s; font-family:inherit;
   }
+  .pr-btn:hover { opacity:.88; transform:translateY(-1px); }
+  .pr-btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; box-shadow:0 4px 14px rgba(99,102,241,.35); }
+  .pr-btn-ghost   { background:#f3f4f6; color:#374151; border:1.5px solid #e5e7eb; }
+  .pr-btn-danger  { background:#fef2f2; color:#dc2626; border:1.5px solid #fecaca; }
+  .pr-table { width:100%; border-collapse:collapse; }
+  .pr-table thead tr { border-bottom:2px solid #f1f5f9; }
+  .pr-table th { text-align:left; padding:10px 14px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+  .pr-table td { padding:13px 14px; font-size:12px; color:#374151; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+  .pr-table tbody tr { transition:background .1s; }
+  .pr-table tbody tr:hover td { background:#f8faff; }
+  .pr-table tbody tr:last-child td { border-bottom:none; }
+  .pr-av { width:34px; height:34px; border-radius:10px; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .pr-chip { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:9px; font-weight:700; white-space:nowrap; }
+  .pr-form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .pr-form-group { display:flex; flex-direction:column; gap:5px; }
+  .pr-form-label { font-size:11px; font-weight:600; color:#374151; }
+  .pr-stat-card { border-radius:14px; padding:16px 18px; color:#fff; position:relative; overflow:hidden; }
+  .pr-stat-card::after { content:''; position:absolute; width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,.08); bottom:-15px; right:-15px; }
+  ::-webkit-scrollbar { height:4px; width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:4px; }
 `;
 
-function calcDays(from: string, to: string): number {
-  if (!from || !to) return 0;
-  const a = new Date(from), b = new Date(to);
-  if (b < a) return 0;
-  return Math.round((b.getTime() - a.getTime()) / 86400000) + 1;
-}
+const AV_GRADS = [
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#ec4899,#f9a8d4)',
+  'linear-gradient(135deg,#f97316,#fbbf24)',
+  'linear-gradient(135deg,#14b8a6,#06b6d4)',
+  'linear-gradient(135deg,#10b981,#34d399)',
+  'linear-gradient(135deg,#3b82f6,#60a5fa)',
+];
+const avGrad = (name: string) => AV_GRADS[(name?.charCodeAt(0) || 0) % AV_GRADS.length];
+const getInitials = (name: string) => (name || '?').split(' ').filter(Boolean).map((n:string) => n[0]).join('').slice(0,2).toUpperCase();
 
-const getInitials = (name: string) => {
-  return name.split(' ').filter(Boolean).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+const salaryDelta = (oldS: number, newS: number) => {
+  const diff = newS - oldS;
+  const pct  = oldS > 0 ? Math.round((diff / oldS) * 100) : 0;
+  return { diff, pct };
 };
 
-export default function Leave() {
-  const { leaveRequests: data, setLeaveRequests: setData, employees, leaveTypes } = useData();
-  const { user, activeRole } = useAuth();
-  const [tab, setTab] = useState('all');
+// ══════════════════════════════════════════════════════════════════════════════
+export default function Promotions() {
+  const { promotions, setPromotions, employees, setEmployees } = useData();
+  const [modal, setModal] = useState(false);
   const { showToast } = useToastContext();
-  const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
-  const visibleEmployeeIds = useMemo(() => new Set(visibleEmployees.map((e: any) => e.id)), [visibleEmployees]);
-  const getEmployeeAvatar = (id: string) => {
-    const emp = visibleEmployees.find((e: any) => e.id === id);
-    return emp?.avatar || getInitials(emp?.name || '');
-  };
-  const [newModal, setNewModal] = useState(false);
-  const [editModal, setEditModal] = useState<any | null>(null);
-  const [earlyModal, setEarlyModal] = useState<any | null>(null);
-  const [rejectModal, setRejectModal] = useState<any | null>(null);
-  const [rejectComment, setRejectComment] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [newEmp, setNewEmp] = useState('');
-  const [newType, setNewType] = useState('Annual');
-  const [newFrom, setNewFrom] = useState('');
-  const [newTo, setNewTo] = useState('');
-  const [newReason, setNewReason] = useState('');
-  const [editType, setEditType] = useState('');
-  const [editFrom, setEditFrom] = useState('');
-  const [editTo, setEditTo] = useState('');
-  const [editReason, setEditReason] = useState('');
-  const [earlyDate, setEarlyDate] = useState('');
-  const [calDeptFilter, setCalDeptFilter] = useState('');
 
-  const counts = useMemo(() => ({
-    total: data.filter((l: any) => visibleEmployeeIds.has(l.empId)).length,
-    pending: data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.status === 'Pending').length,
-    approved: data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.status === 'Approved').length,
-    rejected: data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.status === 'Rejected').length,
-    onLeaveToday: 2,
-  }), [data, visibleEmployeeIds]);
+  // Modal form states — unchanged
+  const [empId,     setEmpId]     = useState('EMP001');
+  const [promoDate, setPromoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newDesig,  setNewDesig]  = useState('');
+  const [newSalary, setNewSalary] = useState('');
+  const [notes,     setNotes]     = useState('');
 
-  const visibleData = data.filter((l: any) => visibleEmployeeIds.has(l.empId));
-  const filtered = tab === 'all' ? visibleData : tab === 'calendar' ? visibleData : tab === 'balances' ? visibleData : visibleData.filter((l: any) => l.status.toLowerCase() === tab);
+  // Filter states — unchanged
+  const [dateFilter,  setDateFilter]  = useState('');
+  const [desigFilter, setDesigFilter] = useState('');
 
-  function handleApprove(id: string) { setData(prev => prev.map((l: any) => l.id === id ? { ...l, status: 'Approved' } : l)); showToast('Leave approved'); }
-  function handleReject(id: string) {
-    if (!rejectComment.trim()) { showToast('Please provide a reason for rejection', 'error'); return; }
-    setData(prev => prev.map((l: any) => l.id === id ? { ...l, status: 'Rejected' } : l));
-    showToast('Leave rejected', 'error');
-    setRejectModal(null); setRejectComment('');
-  }
-
-  function openEdit(row: any) { setEditType(row.leaveType); setEditFrom(row.from); setEditTo(row.to); setEditReason(row.reason); setEditModal(row); }
-
-  function saveEdit() {
-    if (!editModal) return;
-    setSaving(true);
-    setTimeout(() => { setData(prev => prev.map((l: any) => l.id === editModal.id ? { ...l, leaveType: editType, from: editFrom, to: editTo, days: calcDays(editFrom, editTo), reason: editReason } : l)); setSaving(false); setEditModal(null); showToast('Leave request updated'); }, 600);
-  }
-
-  function openEarly(row: any) { setEarlyDate(''); setEarlyModal(row); }
-
-  function confirmEarly() {
-    if (!earlyModal || !earlyDate) return;
-    setSaving(true);
-    setTimeout(() => { const actualDays = calcDays(earlyModal.from, earlyDate); setData(prev => prev.map((l: any) => l.id === earlyModal.id ? { ...l, to: earlyDate, days: actualDays } : l)); setSaving(false); setEarlyModal(null); showToast('Early return recorded'); }, 600);
-  }
-
-  const newDays = calcDays(newFrom, newTo);
-
-  function submitNew() {
-    if (!newEmp || !newFrom || !newTo || !newReason) { showToast('Please fill all required fields', 'error'); return; }
-    setSaving(true);
-    setTimeout(() => { const emp = employees.find((e: any) => e.id === newEmp); setData(prev => [{ id: 'LR' + String(prev.length + 1).padStart(3, '0'), empId: newEmp, empName: emp?.name || '', leaveType: newType, from: newFrom, to: newTo, days: newDays, reason: newReason, appliedOn: new Date().toISOString().split('T')[0], status: 'Pending' }, ...prev]); setSaving(false); setNewModal(false); setNewEmp(''); setNewType('Annual'); setNewFrom(''); setNewTo(''); setNewReason(''); showToast('Leave request submitted'); }, 600);
-  }
-
-  const earlyOrigDays = earlyModal ? calcDays(earlyModal.from, earlyModal.to) : 0;
-  const earlyActual = earlyModal && earlyDate ? calcDays(earlyModal.from, earlyDate) : earlyOrigDays;
-  const earlyRestore = earlyOrigDays - earlyActual;
-
-  // Leave balance overview
-  const empBalances = visibleEmployees.map((e: any) => {
-    const empLeaves = data.filter((l: any) => visibleEmployeeIds.has(l.empId) && l.empId === e.id && l.status === 'Approved');
-    const annual = empLeaves.filter((l: any) => l.leaveType === 'Annual').reduce((s: number, l: any) => s + l.days, 0);
-    const casual = empLeaves.filter((l: any) => l.leaveType === 'Casual').reduce((s: number, l: any) => s + l.days, 0);
-    const medical = empLeaves.filter((l: any) => l.leaveType.includes('Medical') || l.leaveType.includes('Sick')).reduce((s: number, l: any) => s + l.days, 0);
-    return { id: e.id, name: e.name, dept: e.department, annual: { used: annual, total: 12 }, casual: { used: casual, total: 12 }, medical: { used: medical, total: 8 } };
-  });
-
-  // Calendar data
-  const approvedLeaves = visibleData.filter((l: any) => l.status === 'Approved' && (!calDeptFilter || visibleEmployees.find((e: any) => e.id === l.empId)?.department === calDeptFilter));
-  const calDays = Array.from({ length: 31 }, (_, i) => i + 1);
-  const leaveColors: Record<string, string> = { Annual: 'var(--pl)', Casual: 'var(--greenl)', Sick: 'var(--redl)', Medical: 'var(--redl)' };
-
-  // ── Stat card definitions (same shape as Promotions) ──
-  const statCards = [
-    {
-      label: 'Total Requests',
-      val: counts.total,
-      sub: 'All time',
-      icon: <CalendarDays size={16} color="#fff" />,
-      grad: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-      glow: 'rgba(99,102,241,.3)',
-    },
-    {
-      label: 'Pending',
-      val: counts.pending,
-      sub: 'Awaiting action',
-      icon: <Clock size={16} color="#fff" />,
-      grad: 'linear-gradient(135deg,#f97316,#fbbf24)',
-      glow: 'rgba(249,115,22,.3)',
-    },
-    {
-      label: 'Approved',
-      val: counts.approved,
-      sub: 'This period',
-      icon: <ThumbsUp size={16} color="#fff" />,
-      grad: 'linear-gradient(135deg,#10b981,#34d399)',
-      glow: 'rgba(16,185,129,.3)',
-    },
-    {
-      label: 'Rejected',
-      val: counts.rejected,
-      sub: 'This period',
-      icon: <ThumbsDown size={16} color="#fff" />,
-      grad: 'linear-gradient(135deg,#ec4899,#f43f5e)',
-      glow: 'rgba(236,72,153,.3)',
-    },
-    {
-      label: 'On Leave Today',
-      val: counts.onLeaveToday,
-      sub: 'Currently absent',
-      icon: <Users size={16} color="#fff" />,
-      grad: 'linear-gradient(135deg,#14b8a6,#06b6d4)',
-      glow: 'rgba(20,184,166,.3)',
-    },
+  const designationsList = [
+    "Junior Developer","Senior Developer","Lead Developer",
+    "Marketing Executive","Marketing Manager","HR Specialist",
   ];
 
+  const emp = employees.find((e: any) => e.id === empId);
+
+  // Filter logic — unchanged
+  const filteredPromotions = promotions.filter((p: any) => {
+    const matchesDate  = dateFilter  ? p.date === dateFilter           : true;
+    const matchesDesig = desigFilter ? p.newDesignation === desigFilter : true;
+    return matchesDate && matchesDesig;
+  });
+
+  const handleSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewSalary(e.target.value.replace(/\D/g, ''));
+  };
+
+  // savePromo — logic unchanged
+  const savePromo = () => {
+    if (!newDesig || !newSalary) { showToast('Please fill all required fields'); return; }
+    const nSalary = parseInt(newSalary);
+    const newRecord = {
+      id: 'PR' + String(promotions.length + 1).padStart(3, '0'),
+      empId,
+      empName:        emp?.name || '',
+      oldDesignation: emp?.designation || '',
+      newDesignation: newDesig,
+      oldSalary:      emp?.salary.basic || 0,
+      newSalary:      nSalary,
+      date:           promoDate,
+      notes,
+      approvedBy:     'Super Admin',
+    };
+    setPromotions((prev: any) => [...prev, newRecord]);
+    if (setEmployees) {
+      setEmployees((prevEmps: any) => prevEmps.map((e: any) =>
+        e.id === empId ? { ...e, designation: newDesig, salary: { ...e.salary, basic: nSalary } } : e
+      ));
+    }
+    showToast(`Promotion recorded for ${emp?.name}`);
+    setModal(false);
+    setNewDesig(''); setNewSalary(''); setNotes('');
+  };
+
+  // ── Summary stats ──
+  const totalPromos  = promotions.length;
+  const thisMonth    = promotions.filter((p: any) => p.date?.slice(0,7) === new Date().toISOString().slice(0,7)).length;
+  const avgHike      = promotions.length
+    ? Math.round(promotions.reduce((acc: number, p: any) => acc + (p.oldSalary > 0 ? ((p.newSalary - p.oldSalary) / p.oldSalary) * 100 : 0), 0) / promotions.length)
+    : 0;
+  const uniqueEmp    = new Set(promotions.map((p: any) => p.empId)).size;
+  const hasFilters   = dateFilter || desigFilter;
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div>
-      <style>{STAT_CSS}</style>
+    <>
+      <style>{CSS}</style>
+      <div className="pr-page">
 
-      <div className="pg-head">
-        <div><div className="pg-greet">Leave Management</div><div className="pg-sub">Manage leave requests and approvals</div></div>
-        <button className="btn btn-primary" onClick={() => setNewModal(true)}><Plus size={13} /> New Leave Request</button>
-      </div>
-
-      {/* ── Gradient Stat Cards (Promotions style) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 18 }}>
-        {statCards.map((c, i) => (
-          <div
-            key={i}
-            className="lv-stat-card"
-            style={{ background: c.grad, boxShadow: `0 8px 24px ${c.glow}`, animationDelay: `${i * 0.07}s` }}
-          >
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(255,255,255,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-              {c.icon}
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{c.val}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,.85)', marginTop: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>{c.sub}</div>
+        {/* ── Page Header ── */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:12}}>
+          <div>
+            <h1 style={{margin:0,fontSize:26,fontWeight:800,color:'#1e1b4b'}}>Promotions</h1>
+            <p style={{margin:'4px 0 0',fontSize:12,color:'#9ca3af'}}>
+              Track employee promotions and career growth &nbsp;·&nbsp;
+              <span style={{color:'#6366f1',fontWeight:600}}>{totalPromos} total records</span>
+            </p>
           </div>
-        ))}
-      </div>
-
-      <div className="tabs">
-        {['all', 'pending', 'approved', 'rejected', 'calendar', 'balances'].map(t => (
-          <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'calendar' ? '📅 Calendar' : t === 'balances' ? '📊 Balances' : t.charAt(0).toUpperCase() + t.slice(1)}
+          <button className="pr-btn pr-btn-primary" onClick={() => setModal(true)}>
+            <Plus size={13}/> Record Promotion
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Calendar View */}
-      {tab === 'calendar' && (
-        <div className="card">
-          <div className="ch">
-            <div className="ct"><div className="ct-ico blue"><CalendarDays size={13} /></div>March 2026 — Leave Calendar</div>
-            <select className="input select-input" style={{ width: 160 }} value={calDeptFilter} onChange={e => setCalDeptFilter(e.target.value)}>
-              <option value="">All Departments</option>
-              {['Engineering', 'Marketing', 'HR', 'Sales', 'Finance'].map(d => <option key={d}>{d}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => <div key={i} style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', padding: 6 }}>{d}</div>)}
-            {calDays.map(day => {
-              const dateStr = `2026-03-${String(day).padStart(2, '0')}`;
-              const leaves = approvedLeaves.filter((l: any) => l.from <= dateStr && l.to >= dateStr);
-              return (
-                <div key={day} style={{ padding: 6, borderRadius: 6, background: leaves.length > 0 ? 'var(--pl)' : 'var(--inp)', minHeight: 50, textAlign: 'left' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>{day}</div>
-                  {leaves.slice(0, 2).map((l: any, i: number) => (
-                    <div key={i} style={{ fontSize: 8, padding: '1px 3px', borderRadius: 3, background: leaveColors[l.leaveType] || 'var(--steell)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${l.empName} - ${l.leaveType}`}>{l.empName?.split(' ')[0]}</div>
-                  ))}
-                  {leaves.length > 2 && <div style={{ fontSize: 7, color: 'var(--t3)', marginTop: 1 }}>+{leaves.length - 2} more</div>}
-                </div>
-              );
-            })}
+        {/* ── Summary Stat Cards ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:18}}>
+          {[
+            { label:'Total Promotions',  val:totalPromos, sub:'All time',        icon:<Award size={16} color="#fff"/>,      grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', glow:'rgba(99,102,241,.3)' },
+            { label:'This Month',        val:thisMonth,   sub:'Current month',   icon:<CalendarIcon size={16} color="#fff"/>,grad:'linear-gradient(135deg,#ec4899,#f43f5e)', glow:'rgba(236,72,153,.3)' },
+            { label:'Avg Salary Hike',   val:`${avgHike}%`,sub:'Across all',    icon:<TrendingUp size={16} color="#fff"/>,   grad:'linear-gradient(135deg,#f97316,#fbbf24)', glow:'rgba(249,115,22,.3)' },
+            { label:'Employees Promoted',val:uniqueEmp,   sub:'Unique employees',icon:<Users size={16} color="#fff"/>,       grad:'linear-gradient(135deg,#14b8a6,#06b6d4)', glow:'rgba(20,184,166,.3)' },
+          ].map((c,i)=>(
+            <div key={i} className="pr-stat-card" style={{background:c.grad,boxShadow:`0 8px 24px ${c.glow}`,animationDelay:`${i*.07}s`}}>
+              <div style={{width:34,height:34,borderRadius:9,background:'rgba(255,255,255,.22)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10}}>
+                {c.icon}
+              </div>
+              <div style={{fontSize:26,fontWeight:800,color:'#fff',lineHeight:1}}>{c.val}</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,.85)',marginTop:4}}>{c.label}</div>
+              <div style={{fontSize:9,color:'rgba(255,255,255,.6)',marginTop:2}}>{c.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Filter Bar ── */}
+        <div className="pr-card" style={{marginBottom:14,padding:'14px 18px'}}>
+          <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:7,background:'#f8fafc',border:'1.5px solid #e5e7eb',borderRadius:10,padding:'0 12px',height:38,flex:'0 0 auto'}}>
+              <CalendarIcon size={13} color="#9ca3af"/>
+              <input
+                type="date"
+                style={{border:'none',background:'transparent',outline:'none',fontSize:12,color:'#374151',fontFamily:'inherit',cursor:'pointer'}}
+                value={dateFilter}
+                onChange={e => setDateFilter(e.target.value)}
+              />
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:7,background:'#f8fafc',border:'1.5px solid #e5e7eb',borderRadius:10,padding:'0 12px',height:38}}>
+              <Filter size={13} color="#9ca3af"/>
+              <select
+                style={{border:'none',background:'transparent',outline:'none',fontSize:12,color:'#374151',fontFamily:'inherit',cursor:'pointer',minWidth:170}}
+                value={desigFilter}
+                onChange={e => setDesigFilter(e.target.value)}
+              >
+                <option value="">All Designations</option>
+                {designationsList.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            {hasFilters && (
+              <button className="pr-btn pr-btn-danger" style={{height:34,fontSize:11}} onClick={()=>{setDateFilter('');setDesigFilter('');}}>
+                Clear ✕
+              </button>
+            )}
+            <span style={{marginLeft:'auto',fontSize:11,color:'#9ca3af'}}>
+              {filteredPromotions.length} record{filteredPromotions.length!==1?'s':''}{hasFilters?' (filtered)':''}
+            </span>
           </div>
         </div>
-      )}
 
-      {/* Balance Overview */}
-      {tab === 'balances' && (
-        <div className="card">
-          <div className="ch">
-            <div className="ct"><div className="ct-ico green"><Users size={13} /></div>Leave Balance Overview</div>
-            <button className="btn btn-sm btn-ghost">Export</button>
-          </div>
-          <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Annual (used/total)</th><th>Casual (used/total)</th><th>Medical (used/total)</th></tr></thead>
-            <tbody>
-              {empBalances.map((e, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 600 }}>
-                    <div className="table-avatar-cell">
-                      <div className="table-avatar table-avatar-small">{getEmployeeAvatar(e.id)}</div>
-                      <div>
-                        <div>{e.name}</div>
-                        <div className="mono" style={{ fontSize: 10, color: 'var(--t3)' }}>{e.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{e.dept}</td>
-                  <td className="mono"><span style={{ color: (e.annual.total - e.annual.used) < 3 ? 'var(--red)' : 'var(--t1)' }}>{e.annual.used}/{e.annual.total}</span>{(e.annual.total - e.annual.used) < 3 && <span style={{ fontSize: 9, color: 'var(--red)', marginLeft: 4 }}>⚠ Low</span>}</td>
-                  <td className="mono"><span style={{ color: (e.casual.total - e.casual.used) < 3 ? 'var(--red)' : 'var(--t1)' }}>{e.casual.used}/{e.casual.total}</span></td>
-                  <td className="mono"><span style={{ color: (e.medical.total - e.medical.used) < 3 ? 'var(--red)' : 'var(--t1)' }}>{e.medical.used}/{e.medical.total}</span></td>
+        {/* ── Table ── */}
+        <div className="pr-card">
+          <div style={{overflowX:'auto'}}>
+            <table className="pr-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Old Designation</th>
+                  <th>New Designation</th>
+                  <th>Salary Before</th>
+                  <th>Salary After</th>
+                  <th>Hike</th>
+                  <th>Date</th>
+                  <th>Approved By</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Table views */}
-      {!['calendar', 'balances'].includes(tab) && (
-        <div className="card">
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--t3)' }}><CalendarDays size={32} style={{ margin: '0 auto 8px', opacity: .4 }} /><div style={{ fontSize: 13 }}>No leave requests found</div></div>
-          ) : (
-            <table>
-              <thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Applied</th><th>Status</th><th>Actions</th></tr></thead>
+              </thead>
               <tbody>
-                {filtered.map((l: any) => (
-                  <tr key={l.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      <div className="table-avatar-cell">
-                        <div className="table-avatar table-avatar-small">{getEmployeeAvatar(l.empId)}</div>
-                        <div>
-                          <div>{l.empName}</div>
-                          <div className="mono" style={{ fontSize: 10, color: 'var(--t3)' }}>{l.empId}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{l.leaveType}</td><td className="mono">{l.from}</td><td className="mono">{l.to}</td><td className="mono">{l.days}</td>
-                    <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
-                    <td className="mono">{l.appliedOn}</td>
-                    <td><span className={`pill ${getStatusColor(l.status)}`}>{l.status}</span></td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {l.status === 'Pending' && <>
-                          <button className="ico-btn" title="Approve" style={{ background: 'var(--greenl)', color: 'var(--green)', border: 'none', width: 28, height: 28 }} onClick={() => handleApprove(l.id)}><Check size={13} /></button>
-                          <button className="ico-btn" title="Reject" style={{ background: 'var(--redl)', color: 'var(--red)', border: 'none', width: 28, height: 28 }} onClick={() => setRejectModal(l)}><X size={13} /></button>
-                          <button className="ico-btn" title="Edit" style={{ width: 28, height: 28 }} onClick={() => openEdit(l)}><Pencil size={13} /></button>
-                        </>}
-                        {l.status === 'Approved' && <button className="btn btn-sm btn-ghost" onClick={() => openEarly(l)}><RotateCcw size={12} /> Early Return</button>}
-                      </div>
+                {filteredPromotions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{textAlign:'center',padding:'48px 20px'}}>
+                      <div style={{fontSize:28,marginBottom:8}}>🏆</div>
+                      <div style={{fontSize:13,fontWeight:600,color:'#374151',marginBottom:4}}>No promotions found</div>
+                      <div style={{fontSize:11,color:'#9ca3af'}}>{hasFilters ? 'Try adjusting your filters' : 'Record your first promotion to get started'}</div>
                     </td>
                   </tr>
-                ))}
+                ) : filteredPromotions.map((p: any, i: number) => {
+                  const { diff, pct } = salaryDelta(p.oldSalary, p.newSalary);
+                  return (
+                    <tr key={i}>
+                      {/* Employee */}
+                      <td>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div className="pr-av" style={{background:avGrad(p.empName)}}>
+                            {getInitials(p.empName)}
+                          </div>
+                          <div>
+                            <div style={{fontWeight:700,color:'#1e1b4b',fontSize:12}}>{p.empName}</div>
+                            <div style={{fontSize:9,color:'#9ca3af',marginTop:1}}>{p.empId}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Old Designation */}
+                      <td>
+                        <span style={{fontSize:11,color:'#6b7280',background:'#f3f4f6',padding:'3px 9px',borderRadius:20,fontWeight:500}}>
+                          {p.oldDesignation}
+                        </span>
+                      </td>
+
+                      {/* New Designation */}
+                      <td>
+                        <span style={{fontSize:11,color:'#6366f1',background:'#eff6ff',padding:'3px 9px',borderRadius:20,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4}}>
+                          <ChevronUp size={11}/> {p.newDesignation}
+                        </span>
+                      </td>
+
+                      {/* Old Salary */}
+                      <td>
+                        <span style={{fontFamily:'monospace',fontSize:12,color:'#9ca3af'}}>{formatPKR(p.oldSalary)}</span>
+                      </td>
+
+                      {/* New Salary */}
+                      <td>
+                        <span style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:'#10b981'}}>{formatPKR(p.newSalary)}</span>
+                      </td>
+
+                      {/* Hike % */}
+                      <td>
+                        <span className="pr-chip" style={{background:'#dcfce7',color:'#166534'}}>
+                          ↑ {pct}%
+                        </span>
+                      </td>
+
+                      {/* Date */}
+                      <td>
+                        <span style={{fontFamily:'monospace',fontSize:11,color:'#6b7280',background:'#f8fafc',padding:'3px 8px',borderRadius:7}}>
+                          {p.date}
+                        </span>
+                      </td>
+
+                      {/* Approved By */}
+                      <td>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <div style={{width:20,height:20,borderRadius:6,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:7,color:'#fff',fontWeight:700}}>
+                            {getInitials(p.approvedBy)}
+                          </div>
+                          <span style={{fontSize:11,color:'#374151'}}>{p.approvedBy}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
+          </div>
         </div>
-      )}
 
-      {/* Reject modal with comment */}
-      <Modal open={!!rejectModal} onClose={() => setRejectModal(null)} title="Reject Leave Request" footer={<><button className="btn btn-secondary" onClick={() => setRejectModal(null)}>Cancel</button><button className="btn btn-danger" onClick={() => handleReject(rejectModal?.id)}>Reject</button></>}>
-        <div style={{ fontSize: 12.5, marginBottom: 12 }}><strong>{rejectModal?.empName}</strong> — {rejectModal?.leaveType} Leave ({rejectModal?.from} to {rejectModal?.to})</div>
-        <div className="form-group"><label className="form-label">Reason for Rejection *</label><textarea className="input" rows={3} value={rejectComment} onChange={e => setRejectComment(e.target.value)} placeholder="Required — provide reason..." /></div>
-      </Modal>
+        {/* ── Modal — logic zero touch, only styled ── */}
+        <Modal
+          open={modal}
+          onClose={() => setModal(false)}
+          title="Record Promotion"
+          footer={
+            <>
+              <button className="pr-btn pr-btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+              <button className="pr-btn pr-btn-primary" onClick={savePromo}>Save Promotion</button>
+            </>
+          }
+        >
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-      <Modal open={newModal} onClose={() => setNewModal(false)} title="New Leave Request" footer={<><button className="btn btn-secondary" onClick={() => setNewModal(false)}>Cancel</button><button className="btn btn-primary" onClick={submitNew} disabled={saving}>{saving ? 'Submitting...' : 'Submit Request'}</button></>}>
-        <div className="form-group"><label className="form-label">Employee *</label><select className="input select-input" value={newEmp} onChange={e => setNewEmp(e.target.value)}><option value="">Select employee...</option>{visibleEmployees.map((e: any) => <option key={e.id} value={e.id}>{e.name} ({e.id})</option>)}</select></div>
-        <div className="form-group"><label className="form-label">Leave Type</label><select className="input select-input" value={newType} onChange={e => setNewType(e.target.value)}>{leaveTypes.filter((t: any) => t.active).map((t: any) => <option key={t.code} value={t.name.replace(' Leave', '')}>{t.name}</option>)}</select></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="form-group"><label className="form-label">From Date *</label><input className="input" type="date" value={newFrom} onChange={e => setNewFrom(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">To Date *</label><input className="input" type="date" value={newTo} onChange={e => setNewTo(e.target.value)} /></div>
-        </div>
-        {newFrom && newTo && <div style={{ fontSize: 12, marginBottom: 8, color: 'var(--p)', fontWeight: 600 }}>Days Requested: <span className="mono">{newDays}</span></div>}
-        {newEmp && <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 8 }}>Remaining balance shown on approval screen</div>}
-        <div className="form-group"><label className="form-label">Reason *</label><textarea className="input" rows={3} value={newReason} onChange={e => setNewReason(e.target.value)} placeholder="Enter reason for leave..." /></div>
-      </Modal>
+            {/* Employee select */}
+            <div className="pr-form-group">
+              <label className="pr-form-label">Employee</label>
+              <select className="pr-input pr-select" value={empId} onChange={e => setEmpId(e.target.value)}>
+                {employees.map((e: any) => <option key={e.id} value={e.id}>{e.id} — {e.name}</option>)}
+              </select>
+            </div>
 
-      <Modal open={!!editModal} onClose={() => setEditModal(null)} title="Edit Leave Request" footer={<><button className="btn btn-secondary" onClick={() => setEditModal(null)}>Cancel</button><button className="btn btn-primary" onClick={saveEdit} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button></>}>
-        <DecisionBanner>DECISION NEEDED — HR Edit Permissions: Which fields can HR edit? Please confirm in meeting.</DecisionBanner>
-        <div style={{ marginTop: 12 }} />
-        <div className="form-group"><label className="form-label">Employee</label><input className="input" value={editModal?.empName || ''} disabled style={{ opacity: .7 }} /></div>
-        <div className="form-group"><label className="form-label">Leave Type</label><select className="input select-input" value={editType} onChange={e => setEditType(e.target.value)}>{leaveTypes.filter((t: any) => t.active).map((t: any) => <option key={t.code} value={t.name.replace(' Leave', '')}>{t.name}</option>)}</select></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="form-group"><label className="form-label">From</label><input className="input" type="date" value={editFrom} onChange={e => setEditFrom(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">To</label><input className="input" type="date" value={editTo} onChange={e => setEditTo(e.target.value)} /></div>
-        </div>
-        {editFrom && editTo && <div style={{ fontSize: 12, marginBottom: 8, color: 'var(--p)', fontWeight: 600 }}>Days: <span className="mono">{calcDays(editFrom, editTo)}</span></div>}
-        <div className="form-group"><label className="form-label">Reason</label><textarea className="input" rows={3} value={editReason} onChange={e => setEditReason(e.target.value)} /></div>
-      </Modal>
+            {/* Selected employee preview */}
+            {emp && (
+              <div style={{display:'flex',alignItems:'center',gap:12,background:'#f8fafc',borderRadius:12,padding:'10px 14px',border:'1.5px solid #e5e7eb'}}>
+                <div className="pr-av" style={{background:avGrad(emp.name),width:38,height:38,fontSize:13}}>
+                  {getInitials(emp.name)}
+                </div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#1e1b4b'}}>{emp.name}</div>
+                  <div style={{fontSize:10,color:'#9ca3af',marginTop:1}}>{emp.designation} &nbsp;·&nbsp; {formatPKR(emp.salary?.basic || 0)}</div>
+                </div>
+              </div>
+            )}
 
-      <Modal open={!!earlyModal} onClose={() => setEarlyModal(null)} title="Mark Early Return" footer={<><button className="btn btn-secondary" onClick={() => setEarlyModal(null)}>Cancel</button><button className="btn btn-primary" onClick={confirmEarly} disabled={saving || !earlyDate}>{saving ? 'Saving...' : 'Confirm Early Return'}</button></>}>
-        <div style={{ background: 'var(--inp)', padding: 12, borderRadius: 'var(--rsm)', marginBottom: 12, fontSize: 12.5 }}>
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>{earlyModal?.empName} — {earlyModal?.leaveType} Leave</div>
-          <div className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>Original: {earlyModal?.from} to {earlyModal?.to} ({earlyOrigDays} days)</div>
-        </div>
-        <div className="form-group"><label className="form-label">Employee returned on:</label><input className="input" type="date" value={earlyDate} onChange={e => setEarlyDate(e.target.value)} min={earlyModal?.from} max={earlyModal?.to} /></div>
-        {earlyDate && <div style={{ display: 'flex', gap: 20, fontSize: 12.5, padding: '8px 0' }}><div>Days Actually Taken: <strong className="mono">{earlyActual}</strong></div><div>Days to Restore: <strong className="mono" style={{ color: 'var(--green)' }}>{earlyRestore > 0 ? earlyRestore : 0}</strong></div></div>}
-        <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 8 }}>The original leave approval is preserved. The early return date is recorded separately.</div>
-      </Modal>
-    </div>
+            {/* Date */}
+            <div className="pr-form-group">
+              <label className="pr-form-label">Promotion Date</label>
+              <input className="pr-input" type="date" value={promoDate} onChange={e => setPromoDate(e.target.value)}/>
+            </div>
+
+            {/* Old / New Designation */}
+            <div className="pr-form-row">
+              <div className="pr-form-group">
+                <label className="pr-form-label">Old Designation</label>
+                <input className="pr-input" value={emp?.designation || ''} disabled/>
+              </div>
+              <div className="pr-form-group">
+                <label className="pr-form-label">New Designation <span style={{color:'#ef4444'}}>*</span></label>
+                <select className="pr-input pr-select" value={newDesig} onChange={e => setNewDesig(e.target.value)}>
+                  <option value="">Select Designation</option>
+                  {designationsList.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Old / New Salary */}
+            <div className="pr-form-row">
+              <div className="pr-form-group">
+                <label className="pr-form-label">Old Salary</label>
+                <input className="pr-input" style={{fontFamily:'monospace'}} value={formatPKR(emp?.salary?.basic || 0)} disabled/>
+              </div>
+              <div className="pr-form-group">
+                <label className="pr-form-label">New Salary <span style={{color:'#ef4444'}}>*</span></label>
+                <input className="pr-input" style={{fontFamily:'monospace'}} type="text" value={newSalary} onChange={handleSalaryChange} placeholder="e.g. 75000"/>
+              </div>
+            </div>
+
+            {/* Hike preview */}
+            {newSalary && emp?.salary?.basic > 0 && (
+              <div style={{background:'#f0fdf4',border:'1.5px solid #bbf7d0',borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:8}}>
+                <TrendingUp size={14} color="#10b981"/>
+                <span style={{fontSize:12,color:'#166534',fontWeight:600}}>
+                  Salary hike: {salaryDelta(emp.salary.basic, parseInt(newSalary)||0).pct}%
+                  &nbsp;(+{formatPKR(salaryDelta(emp.salary.basic, parseInt(newSalary)||0).diff)})
+                </span>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="pr-form-group">
+              <label className="pr-form-label">Notes / Remarks</label>
+              <textarea
+                className="pr-input pr-textarea"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Reason for promotion, performance notes, etc."
+              />
+            </div>
+
+          </div>
+        </Modal>
+
+      </div>
+    </>
   );
 }
